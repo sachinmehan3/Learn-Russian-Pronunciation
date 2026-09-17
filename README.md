@@ -49,13 +49,24 @@ clip_ids exist, so it can't get them wrong.
   - **Voice** — re-synthesizes it in another voice.
 
   Every variant is cached by (text, voice, speed), so replaying is instant.
-- **Sidebar (left, collapsible)** — *New chat*, plus *Settings → Preferences*.
+- **Sidebar (left, collapsible)** — *New chat*, your saved chats (named by date
+  until you rename them; use the ⋯ menu to rename or delete), and
+  *Settings → Preferences*.
 - **Preferences → Voice** sets the default voice for *new* chats. The current chat
   keeps the voice it started with. The preference is saved in the browser's
   localStorage.
 
-Chats and clips live in memory for the life of the server process; there's no chat
-history across restarts, and `audio_output/` is wiped on startup.
+Chats are saved to `chats/<id>.jsonl`: a meta line (title, voice, created date)
+followed by one line per message. A chat is only written once its first message
+is sent. Audio isn't saved — `audio_output/` is wiped on startup, and words in
+reopened chats are synthesized the first time they're clicked.
+
+### Stress marks
+
+The teacher marks stress with a combining acute accent (приве́т). The word regex
+keeps those marks inside the word, and `tts.py` converts them to Silero's own
+notation (прив+ет) before synthesis — Silero silently ignores the accent
+character otherwise, so the marked stress is what you actually hear.
 
 The first run downloads the Silero `v5_5_ru` model via `torch.hub` and caches it
 locally. `v5_5_ru` is used over the older `v4_ru` because it adds auto-stress,
@@ -66,7 +77,9 @@ intonation in Russian, which matters for pronunciation practice).
 
 ```
 src/
-  tts.py            - Silero TTS wrapper (normal or slow synthesis, any speaker)
+  tts.py            - Silero TTS wrapper (normal or slow synthesis, any speaker,
+                      stress-mark conversion)
+  store.py          - ChatStore: chats persisted as JSONL files
   clips.py          - ClipStore: cached clips keyed by (text, voice, slow)
   agent.py          - TeacherAgent: per-chat history + voice, streaming replies,
                       Markdown -> HTML with clickable Cyrillic words
@@ -80,7 +93,11 @@ src/
 | Method | Path | Purpose |
 |---|---|---|
 | GET  | `/voices` | Available voices and the server default |
+| GET  | `/chats` | Saved chats, most recently active first |
 | POST | `/chats` `{voice}` | Start a chat with a fixed voice |
+| GET  | `/chats/{id}` | A chat with its rendered messages |
+| PATCH | `/chats/{id}` `{title}` | Rename (blank title reverts to the date) |
+| DELETE | `/chats/{id}` | Delete a chat |
 | POST | `/chats/{id}/messages` `{message}` | Stream a reply (SSE: `delta`, `text_done`, `html`) |
 | POST | `/clips` `{text, voice, slow}` | Get or create a clip variant (Cyrillic text only) |
 | GET  | `/audio/{clip_id}` | The clip's wav |

@@ -80,8 +80,83 @@
   }
   .side-item:hover { background: var(--hover); }
   .side-item svg { flex-shrink: 0; }
-  .spacer { flex: 1; }
   .settings-wrap { position: relative; }
+
+  #chat-list-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-top: 10px;
+  }
+  #layout.sidebar-collapsed #chat-list-section { visibility: hidden; }
+  .section-title {
+    padding: 0 10px 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #chat-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  #chat-list::-webkit-scrollbar { display: none; }
+  .chat-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-radius: 8px;
+  }
+  .chat-item:hover, .chat-item.menu-open { background: var(--hover); }
+  .chat-item.active { background: var(--accent-soft); }
+  .chat-open {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: none;
+    background: none;
+    color: var(--fg);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+  .chat-item.active .chat-open { color: var(--accent); }
+  .chat-more {
+    width: 28px;
+    height: 28px;
+    margin-right: 2px;
+    opacity: 0;
+  }
+  .chat-item:hover .chat-more,
+  .chat-item.active .chat-more,
+  .chat-item.menu-open .chat-more,
+  .chat-more:focus-visible { opacity: 1; }
+  .rename-input {
+    flex: 1;
+    min-width: 0;
+    margin: 2px;
+    padding: 5px 8px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .list-empty { padding: 4px 10px; font-size: 0.85rem; color: var(--muted); }
+  #chat-menu {
+    position: fixed;
+    bottom: auto;
+    min-width: 150px;
+  }
+  .menu-item.danger { color: var(--danger); }
   .dropup {
     position: absolute;
     bottom: calc(100% + 6px);
@@ -143,6 +218,7 @@
   #log {
     flex: 1;
     overflow-y: auto;
+    scrollbar-width: none;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -320,6 +396,22 @@
   .modal-head { display: flex; align-items: center; justify-content: space-between; }
   .modal-head h3 { margin: 0; font-size: 1rem; }
   .hint { margin: 0; font-size: 0.85rem; color: var(--muted); }
+  #log::-webkit-scrollbar { display: none; }
+
+  .confirm-card {
+    width: min(400px, 100%);
+    padding: 20px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .confirm-card h2 { margin: 0 0 8px; font-size: 1.05rem; }
+  .confirm-card p { margin: 0 0 18px; color: var(--muted); overflow-wrap: anywhere; }
+  .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn.danger:hover:not(:disabled) { background: var(--danger); filter: brightness(1.08); }
+  .btn svg { flex-shrink: 0; }
 
   @media (max-width: 860px) {
     #word-panel {
@@ -349,7 +441,10 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       <span class="label">New chat</span>
     </button>
-    <div class="spacer"></div>
+    <nav id="chat-list-section" aria-labelledby="chats-title">
+      <div id="chats-title" class="section-title">Chats</div>
+      <ul id="chat-list"></ul>
+    </nav>
     <div class="settings-wrap">
       <div id="settings-menu" class="dropup" role="menu" hidden>
         <button id="open-prefs" class="menu-item" role="menuitem">Preferences</button>
@@ -391,11 +486,33 @@
       <select id="panel-voice"></select>
     </label>
     <div class="panel-actions">
-      <button id="play-normal" class="btn primary" type="button">▶ Play</button>
-      <button id="play-slow" class="btn" type="button">🐢 Slower</button>
+      <button id="play-normal" class="btn primary" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg>
+        Play
+      </button>
+      <button id="play-slow" class="btn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        Slower
+      </button>
     </div>
     <div id="panel-status" role="status"></div>
   </aside>
+</div>
+
+<div id="chat-menu" class="dropup" role="menu" hidden>
+  <button id="rename-chat" class="menu-item" role="menuitem">Rename</button>
+  <button id="delete-chat" class="menu-item danger" role="menuitem">Delete</button>
+</div>
+
+<div id="confirm-delete" class="modal" hidden>
+  <div class="confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <h2 id="confirm-title">Delete chat?</h2>
+    <p id="confirm-text"></p>
+    <div class="confirm-actions">
+      <button id="cancel-delete" class="btn" type="button">Cancel</button>
+      <button id="confirm-delete-btn" class="btn danger" type="button">Delete</button>
+    </div>
+  </div>
 </div>
 
 <div id="prefs" class="modal" hidden>
@@ -459,13 +576,14 @@ function debug(msg, level = "info") {
 window.addEventListener("error", (e) => debug("Uncaught error: " + e.message, "err"));
 window.addEventListener("unhandledrejection", (e) => debug("Unhandled rejection: " + e.reason, "err"));
 
-async function postJSON(url, body) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  debug(`POST ${url} -> ${res.status}`, res.ok ? "ok" : "err");
+async function api(method, url, body) {
+  const options = { method };
+  if (body !== undefined) {
+    options.headers = { "Content-Type": "application/json" };
+    options.body = JSON.stringify(body);
+  }
+  const res = await fetch(url, options);
+  debug(`${method} ${url} -> ${res.status}`, res.ok ? "ok" : "err");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res;
 }
@@ -530,16 +648,194 @@ function addMessage(role, node) {
   return div;
 }
 
+function setCurrentChat(chat) {
+  state.chat = chat;
+  chatVoiceEl.textContent = "Voice: " + voiceLabel(chat.voice);
+  closePanel();
+  highlightActiveChat();
+}
+
 async function newChat() {
   if (state.streaming) return;
-  const res = await postJSON("/chats", { voice: state.defaultVoice });
-  state.chat = await res.json();
+  const res = await api("POST", "/chats", { voice: state.defaultVoice });
+  setCurrentChat(await res.json());
   debug(`New chat ${state.chat.chat_id} (voice ${state.chat.voice})`);
-  chatVoiceEl.textContent = "Voice: " + voiceLabel(state.chat.voice);
-  closePanel();
   showEmptyState();
   input.focus();
 }
+
+async function openChat(chatId) {
+  if (state.streaming || state.chat?.chat_id === chatId) return;
+  const res = await api("GET", `/chats/${chatId}`);
+  const chat = await res.json();
+  setCurrentChat(chat);
+  log.replaceChildren();
+  for (const m of chat.messages) {
+    if (m.role === "user") {
+      addMessage("user", document.createTextNode(m.text));
+    } else {
+      renderReply(addMessage("teacher", document.createTextNode("")), m.html);
+    }
+  }
+  if (!chat.messages.length) showEmptyState();
+  log.scrollTop = log.scrollHeight;
+}
+
+// ---------- chat list ----------
+
+const chatList = $("chat-list");
+const chatMenu = $("chat-menu");
+const confirmDelete = $("confirm-delete");
+let menuChat = null;     // summary of the chat whose "more" menu is open
+let pendingDelete = null;
+
+function chatTitle(chat) {
+  if (chat.title) return chat.title;
+  return new Date(chat.created_at).toLocaleString(undefined, {
+    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+  });
+}
+
+function highlightActiveChat() {
+  chatList.querySelectorAll(".chat-item").forEach((li) => {
+    const active = li.dataset.id === state.chat?.chat_id;
+    li.classList.toggle("active", active);
+    li.querySelector(".chat-open")?.toggleAttribute("aria-current", active);
+  });
+}
+
+async function refreshChatList() {
+  const res = await api("GET", "/chats");
+  const { chats } = await res.json();
+  chatList.replaceChildren(...chats.map(chatListItem));
+  if (!chats.length) {
+    const empty = document.createElement("li");
+    empty.className = "list-empty";
+    empty.textContent = "No saved chats yet";
+    chatList.appendChild(empty);
+  }
+  highlightActiveChat();
+}
+
+function chatListItem(chat) {
+  const li = document.createElement("li");
+  li.className = "chat-item";
+  li.dataset.id = chat.chat_id;
+
+  const open = document.createElement("button");
+  open.className = "chat-open";
+  open.type = "button";
+  open.textContent = chatTitle(chat);
+  open.title = chatTitle(chat);
+  open.addEventListener("click", () => {
+    openChat(chat.chat_id).catch((err) => debug("Couldn't open chat: " + err, "err"));
+  });
+
+  const more = document.createElement("button");
+  more.className = "icon-btn chat-more";
+  more.type = "button";
+  more.setAttribute("aria-label", `Options for ${chatTitle(chat)}`);
+  more.setAttribute("aria-haspopup", "menu");
+  more.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+  more.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (menuChat?.chat_id === chat.chat_id) closeChatMenu();
+    else openChatMenu(chat, li, more);
+  });
+
+  li.append(open, more);
+  return li;
+}
+
+function openChatMenu(chat, li, anchor) {
+  closeChatMenu();
+  menuChat = chat;
+  li.classList.add("menu-open");
+  chatMenu.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  const top = Math.min(r.bottom + 4, window.innerHeight - chatMenu.offsetHeight - 8);
+  chatMenu.style.top = `${top}px`;
+  chatMenu.style.left = `${r.left}px`;
+}
+
+function closeChatMenu() {
+  menuChat = null;
+  chatMenu.hidden = true;
+  chatList.querySelectorAll(".menu-open").forEach((li) => li.classList.remove("menu-open"));
+}
+
+function startRename(chat) {
+  const li = chatList.querySelector(`[data-id="${chat.chat_id}"]`);
+  const open = li.querySelector(".chat-open");
+  const field = document.createElement("input");
+  field.className = "rename-input";
+  field.value = chat.title ?? "";
+  field.placeholder = chatTitle({ ...chat, title: null });
+  field.setAttribute("aria-label", "Chat name");
+  field.maxLength = 100;
+  open.replaceWith(field);
+  field.focus();
+  field.select();
+
+  let finished = false;
+  const finish = async (save) => {
+    if (finished) return;
+    finished = true;
+    if (save && field.value.trim() !== (chat.title ?? "")) {
+      try {
+        await api("PATCH", `/chats/${chat.chat_id}`, { title: field.value });
+      } catch (err) {
+        debug("Rename failed: " + err, "err");
+      }
+    }
+    await refreshChatList();
+  };
+  field.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); }
+  });
+  field.addEventListener("blur", () => finish(true));
+}
+
+function askDelete(chat) {
+  pendingDelete = chat;
+  $("confirm-text").textContent = `"${chatTitle(chat)}" will be permanently deleted.`;
+  confirmDelete.hidden = false;
+  $("cancel-delete").focus();
+}
+
+function closeDeleteDialog() {
+  pendingDelete = null;
+  confirmDelete.hidden = true;
+}
+
+$("rename-chat").addEventListener("click", () => {
+  const chat = menuChat;
+  closeChatMenu();
+  startRename(chat);
+});
+$("delete-chat").addEventListener("click", () => {
+  const chat = menuChat;
+  closeChatMenu();
+  askDelete(chat);
+});
+$("cancel-delete").addEventListener("click", closeDeleteDialog);
+confirmDelete.addEventListener("click", (e) => { if (e.target === confirmDelete) closeDeleteDialog(); });
+$("confirm-delete-btn").addEventListener("click", async () => {
+  const chat = pendingDelete;
+  closeDeleteDialog();
+  try {
+    await api("DELETE", `/chats/${chat.chat_id}`);
+    if (state.chat?.chat_id === chat.chat_id) await newChat();
+  } catch (err) {
+    debug("Delete failed: " + err, "err");
+  }
+  await refreshChatList();
+});
+document.addEventListener("click", (e) => {
+  if (!chatMenu.hidden && !e.target.closest("#chat-menu")) closeChatMenu();
+});
+chatList.addEventListener("scroll", closeChatMenu);
 
 function renderReply(bubble, html) {
   bubble.innerHTML = html;
@@ -569,7 +865,7 @@ form.addEventListener("submit", async (e) => {
 
   setStreaming(true);
   try {
-    const res = await postJSON(`/chats/${state.chat.chat_id}/messages`, { message: text });
+    const res = await api("POST", `/chats/${state.chat.chat_id}/messages`, { message: text });
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -599,6 +895,7 @@ form.addEventListener("submit", async (e) => {
     bubble.textContent = "Something went wrong: " + err.message;
   } finally {
     setStreaming(false);
+    refreshChatList().catch((err) => debug("Couldn't refresh chats: " + err, "err"));
   }
 });
 
@@ -621,7 +918,7 @@ async function playVariant({ clipId, slow }) {
   setPanelStatus(makeSpinner(slow ? "Creating slower version..." : "Creating audio...").el);
   try {
     if (!clipId) {
-      const res = await postJSON("/clips", { text: request.text, voice: request.voice, slow });
+      const res = await api("POST", "/clips", { text: request.text, voice: request.voice, slow });
       clipId = (await res.json()).clip_id;
     }
     if (state.panel !== request) return;
@@ -702,7 +999,9 @@ defaultVoiceSelect.addEventListener("change", () => {
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
-  if (!prefs.hidden) closePrefs();
+  if (!confirmDelete.hidden) closeDeleteDialog();
+  else if (!chatMenu.hidden) closeChatMenu();
+  else if (!prefs.hidden) closePrefs();
   else if (!settingsMenu.hidden) setSettingsMenu(false);
   else if (!wordPanel.hidden) closePanel();
 });
@@ -715,7 +1014,7 @@ document.addEventListener("keydown", (e) => {
     const data = await res.json();
     state.voices = data.voices;
     state.defaultVoice = loadDefaultVoice(data.default);
-    await newChat();
+    await Promise.all([refreshChatList(), newChat()]);
   } catch (err) {
     debug("Startup failed: " + err, "err");
     addMessage("teacher", document.createTextNode("Couldn't connect to the server: " + err.message));

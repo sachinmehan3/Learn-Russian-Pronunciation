@@ -2,12 +2,12 @@ import html
 import logging
 import os
 import re
-import uuid
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
 from clips import ClipStore
+from store import Chat, ChatStore
 from tts import DEFAULT_SPEAKER, RussianTTS
 
 load_dotenv()
@@ -18,22 +18,24 @@ SYSTEM_PROMPT = (
     "You are a Russian teacher helping an English speaker learn Russian. "
     "Whenever you introduce a Russian word or phrase, write it in Cyrillic script "
     "(e.g. привет), and include an English transliteration in parentheses right "
-    "after it (e.g. привет (privet)) so the student can read how it sounds."
+    "after it (e.g. привет (privet)) so the student can read how it sounds. "
+    "Always mark the stressed vowel of every Russian word that has more than one "
+    "vowel with a combining acute accent placed right after that vowel (e.g. "
+    "приве́т, здра́вствуйте, до́брое у́тро). This shows the student where the stress "
+    "falls, and the audio is pronounced with exactly the stress you mark. Don't "
+    "mark ё, which is always stressed."
 )
 
 # Matches a run of Cyrillic word(s), allowing single spaces/hyphens between them
-# so a whole phrase (e.g. "доброе утро") becomes one clip instead of two.
-CYRILLIC_RUN = re.compile(r"[А-Яа-яЁё]+(?:[ \-][А-Яа-яЁё]+)*")
+# so a whole phrase (e.g. "доброе утро") becomes one clip instead of two. U+0301
+# (combining acute accent) is allowed inside words so stress-marked words like
+# "приве́т" stay in one piece.
+_WORD = "[А-Яа-яЁё][А-Яа-яЁё\u0301]*"
+CYRILLIC_RUN = re.compile(f"{_WORD}(?:[ \\-]{_WORD})*")
 
 MARKDOWN_CODE = re.compile(r"`(.+?)`")
 MARKDOWN_BOLD = re.compile(r"\*\*(.+?)\*\*")
 MARKDOWN_ITALIC = re.compile(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)")
-
-
-class Chat:
-    def __init__(self, voice: str):
-        self.voice = voice
-        self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
 
 class TeacherAgent:
@@ -46,7 +48,7 @@ class TeacherAgent:
         self.reasoning_effort = os.environ.get("OPENAI_REASONING_EFFORT", "high") or None
         self.tts = RussianTTS()
         self.clips = ClipStore(self.tts)
-        self.chats: dict[str, Chat] = {}
+        self.chats = ChatStore()
 
     @property
     def voices(self) -> list[str]:
@@ -56,24 +58,18 @@ class TeacherAgent:
     def default_voice(self) -> str:
         return DEFAULT_SPEAKER
 
-    def new_chat(self, voice: str) -> str:
-        chat_id = uuid.uuid4().hex
-        self.chats[chat_id] = Chat(voice)
-        logger.info("new chat %s (voice=%s)", chat_id, voice)
-        return chat_id
-
-    def chat_stream(self, chat_id: str, user_message: str):
+    def chat_stream(self, chat: Chat, user_message: str):
         """Yields dict events as the reply is generated:
         {"type": "delta", "content": str}   - a chunk of streamed reply text
         {"type": "text_done"}               - reply text finished, synthesis starting
         {"type": "html", "html": str}       - final rendered reply, markdown converted
                                                to HTML with clickable Cyrillic words
         """
-        chat = self.chats[chat_id]
-        logger.info("[%s] user: %s", chat_id, user_message)
-        chat.history.append({"role": "user", "content": user_message})
+        logger.info("[%s] user: %s", chat.id, user_message)
+        self.chats.add_message(chat, "user", user_message)
 
-        kwargs = dict(model=self.model, messages=chat.history, stream=True)
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}, *chat.messages]
+        kwargs = dict(model=self.model, messages=messages, stream=True)
         if self.reasoning_effort:
             kwargs["reasoning_effort"] = self.reasoning_effort
         stream = self.client.chat.completions.create(**kwargs)
@@ -86,23 +82,34 @@ class TeacherAgent:
                 yield {"type": "delta", "content": delta}
 
         text = "".join(chunks)
-        logger.info("[%s] assistant: %s", chat_id, text)
-        chat.history.append({"role": "assistant", "content": text})
+        logger.info("[%s] assistant: %s", chat.id, text)
+        self.chats.add_message(chat, "assistant", text)
         yield {"type": "text_done"}
 
-        yield {"type": "html", "html": self._render_html(text, chat.voice)}
+        yield {"type": "html", "html": self.render_html(text, chat.voice, synthesize=True)}
 
-    def _render_html(self, text: str, voice: str) -> str:
+    def render_html(self, text: str, voice: str, synthesize: bool) -> str:
+        """Markdown -> HTML with each Cyrillic run wrapped in a word button.
+
+        With synthesize=True each word's clip is created up front so the first
+        click plays instantly; otherwise (e.g. reopening an old chat) clips are
+        created on demand when a word is clicked.
+        """
         rendered = html.escape(text)
         rendered = MARKDOWN_CODE.sub(r"<code>\1</code>", rendered)
         rendered = MARKDOWN_BOLD.sub(r"<strong>\1</strong>", rendered)
         rendered = MARKDOWN_ITALIC.sub(r"<em>\1</em>", rendered)
-        return CYRILLIC_RUN.sub(lambda m: self._word_button(m.group(), voice), rendered)
+        return CYRILLIC_RUN.sub(
+            lambda m: self._word_button(m.group(), voice, synthesize), rendered
+        )
 
-    def _word_button(self, word: str, voice: str) -> str:
-        clip_id = self.clips.create(word, voice)
-        logger.info("clip created for %r (voice=%s) -> %s", word, voice, clip_id)
+    def _word_button(self, word: str, voice: str, synthesize: bool) -> str:
+        clip_attr = ""
+        if synthesize:
+            clip_id = self.clips.create(word, voice)
+            logger.info("clip created for %r (voice=%s) -> %s", word, voice, clip_id)
+            clip_attr = f' data-clip-id="{clip_id}"'
         return (
-            f'<button type="button" class="word-btn" '
-            f'data-clip-id="{clip_id}" data-voice="{voice}">{word}</button>'
+            f'<button type="button" class="word-btn"{clip_attr} '
+            f'data-voice="{voice}">{word}</button>'
         )

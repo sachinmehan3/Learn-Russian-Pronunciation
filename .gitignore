@@ -3,5 +3,6 @@ __pycache__/
 *.pyc
 .env
 audio_output/
+chats/
 *.wav
 .silero_cache/

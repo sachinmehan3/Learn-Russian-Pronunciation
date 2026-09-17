@@ -31,6 +31,10 @@ class NewChatRequest(BaseModel):
     voice: str
 
 
+class RenameChatRequest(BaseModel):
+    title: str
+
+
 class MessageRequest(BaseModel):
     message: str
 
@@ -56,19 +60,57 @@ def voices():
     return {"voices": agent.voices, "default": agent.default_voice}
 
 
+def require_chat(chat_id: str):
+    chat = agent.chats.get(chat_id)
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    return chat
+
+
+@app.get("/chats")
+def list_chats():
+    return {"chats": agent.chats.list()}
+
+
 @app.post("/chats")
 def new_chat(req: NewChatRequest):
     require_voice(req.voice)
-    return {"chat_id": agent.new_chat(req.voice), "voice": req.voice}
+    chat = agent.chats.create(req.voice)
+    logger.info("new chat %s (voice=%s)", chat.id, chat.voice)
+    return chat.summary()
+
+
+@app.get("/chats/{chat_id}")
+def get_chat(chat_id: str):
+    chat = require_chat(chat_id)
+    messages = []
+    for m in chat.messages:
+        if m["role"] == "user":
+            messages.append({"role": "user", "text": m["content"]})
+        else:
+            html = agent.render_html(m["content"], chat.voice, synthesize=False)
+            messages.append({"role": "assistant", "html": html})
+    return {**chat.summary(), "messages": messages}
+
+
+@app.patch("/chats/{chat_id}")
+def rename_chat(chat_id: str, req: RenameChatRequest):
+    chat = require_chat(chat_id)
+    agent.chats.rename(chat, req.title.strip()[:100] or None)
+    return chat.summary()
+
+
+@app.delete("/chats/{chat_id}", status_code=204)
+def delete_chat(chat_id: str):
+    agent.chats.delete(require_chat(chat_id))
 
 
 @app.post("/chats/{chat_id}/messages")
 def send_message(chat_id: str, req: MessageRequest):
-    if chat_id not in agent.chats:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    chat = require_chat(chat_id)
 
     def event_stream():
-        for event in agent.chat_stream(chat_id, req.message):
+        for event in agent.chat_stream(chat, req.message):
             if event["type"] == "html":
                 logger.info("[%s] rendered: %s", chat_id, event["html"])
             yield f"data: {json.dumps(event)}\n\n"
