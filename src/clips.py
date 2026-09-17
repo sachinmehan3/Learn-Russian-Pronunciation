@@ -19,10 +19,7 @@ class ClipStore:
     def create(self, text: str) -> str:
         clip_id = uuid.uuid4().hex
         output_path = str(self.output_dir / f"{clip_id}.wav")
-        if "<speak" in text:
-            path = self.tts.synthesize_ssml(text, output_path=output_path)
-        else:
-            path = self.tts.synthesize(text, output_path=output_path)
+        path = self.tts.synthesize(text, output_path=output_path)
         self.clips[clip_id] = path
         return clip_id
 

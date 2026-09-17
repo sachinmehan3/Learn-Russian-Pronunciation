@@ -31,11 +31,19 @@ python src/main.py
 ```
 
 This starts a local web server and opens `http://127.0.0.1:8000` in your browser.
-Chat with the teacher agent there. Whenever it introduces a Russian word or phrase,
-that word appears as a clickable button in the reply — click it to hear it spoken,
-as many times as you want. Each word gets its own independent audio clip, so
-multiple pronunciations in the same reply (e.g. an informal and a formal greeting)
-don't overwrite each other.
+Chat with the teacher agent there. Whenever it pronounces a Russian word or phrase,
+a clickable 🔊 button for it appears below the reply — click it to hear it spoken,
+as many times as you want. Each pronunciation gets its own independent audio clip,
+so multiple pronunciations in the same reply (e.g. an informal and a formal
+greeting) don't overwrite each other.
+
+The backend tracks exactly which clips were created during a turn and returns them
+alongside the reply text (`{"text": ..., "clips": [{"clip_id", "text"}, ...]}`) —
+the model never has to correctly reference a clip_id itself, which was a real
+source of bugs (it would sometimes invent a plausible-looking id instead of using
+the real one). This is deliberately simpler than tying inline word segments to
+clip_ids via structured output; the clips just render as a row of buttons under
+the message instead of being embedded inline in the sentence.
 
 Clips stay clickable for the whole session (they live in the `TeacherAgent`'s
 in-memory `ClipStore`, backed by `audio_output/*.wav`). They're wiped at the start
@@ -54,13 +62,13 @@ It also has no cross-run persistence: each run starts a fresh conversation.
 
 ```
 src/
-  tts.py           - Silero TTS wrapper (model loading + synthesis, plain and SSML)
+  tts.py           - Silero TTS wrapper (model loading + plain-text synthesis)
   clips.py         - ClipStore: synthesizes and registers clips by id, for later playback
-  agent.py         - TeacherAgent: OpenAI-compatible chat client, structured (ChatReply)
-                     replies so words can be tied to specific audio clips
+  agent.py         - TeacherAgent: OpenAI-compatible chat client + tool-calling loop;
+                     tracks clips created per turn and returns them alongside the reply
   server.py        - FastAPI app: POST /chat, GET /audio/{clip_id}, serves static/
-  static/index.html - Chat UI: renders text/word segments, word segments are
-                     clickable buttons that play their clip
+  static/index.html - Chat UI: renders reply text plus a row of clickable 🔊 buttons
+                     for any clips created that turn
   main.py          - Entry point: launches the server and opens the browser
 ```
 

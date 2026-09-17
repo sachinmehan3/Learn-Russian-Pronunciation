@@ -1,10 +1,9 @@
 import logging
 import os
-from typing import Literal, Union
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from clips import ClipStore
 from tts import RussianTTS
@@ -24,55 +23,24 @@ TOOLS = [
         "function": {
             "name": "create_pronunciation_clip",
             "description": (
-                "Synthesize Russian audio for the given text and register it for "
-                "later playback -- this does NOT play it immediately. Returns a "
-                "clip_id. Reference that exact clip_id in a 'word' segment of your "
-                "structured reply so the user can click it to hear the audio, as "
-                "many times as they want. `text` must be Cyrillic (e.g. 'привет', "
-                "not 'privet') -- the voice model cannot pronounce romanized text. "
-                "It can also be SSML wrapped in <speak>...</speak> for "
-                "pacing/emphasis."
+                "Create a clickable audio clip so the user can hear the given "
+                "Russian text pronounced. `text` must be Cyrillic (e.g. "
+                "'привет', not 'privet') -- the voice model cannot pronounce "
+                "romanized text."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "text": {
                         "type": "string",
-                        "description": "Cyrillic Russian text (or Cyrillic SSML).",
+                        "description": "Cyrillic Russian text to pronounce.",
                     }
                 },
                 "required": ["text"],
-                "additionalProperties": False,
             },
-            "strict": True,
         },
     }
 ]
-
-
-class TextSegment(BaseModel):
-    type: Literal["text"]
-    content: str = Field(description="A chunk of plain reply text.")
-
-
-class WordSegment(BaseModel):
-    type: Literal["word"]
-    display: str = Field(
-        description="Label shown on the clickable button, e.g. a transliteration or the Cyrillic word."
-    )
-    clip_id: str = Field(
-        description="The clip_id returned by a create_pronunciation_clip call for this exact word. Never invent one."
-    )
-
-
-class ChatReply(BaseModel):
-    segments: list[Union[TextSegment, WordSegment]] = Field(
-        description=(
-            "Your reply broken into segments, in reading order. Any Russian word "
-            "or phrase you've created a pronunciation clip for must be its own "
-            "'word' segment; everything else is 'text' segments."
-        )
-    )
 
 
 class TeacherAgent:
@@ -84,32 +52,18 @@ class TeacherAgent:
         self.model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
         self.reasoning_effort = os.environ.get("OPENAI_REASONING_EFFORT", "high") or None
         self.clips = ClipStore(RussianTTS())
-        self.history = [
-            {
-                "role": "system",
-                "content": (
-                    "Tool-use rule: before including any 'word' segment with a "
-                    "clip_id in your reply, you must first call "
-                    "create_pronunciation_clip for that exact text and use the "
-                    "exact clip_id it returns. Never invent a clip_id."
-                ),
-            }
-        ]
+        self.history = []
 
-    def chat(self, user_message: str) -> ChatReply:
+    def chat(self, user_message: str) -> dict:
         logger.info("user: %s", user_message)
         self.history.append({"role": "user", "content": user_message})
+        new_clips = []
 
         while True:
-            kwargs = dict(
-                model=self.model,
-                messages=self.history,
-                tools=TOOLS,
-                response_format=ChatReply,
-            )
+            kwargs = dict(model=self.model, messages=self.history, tools=TOOLS)
             if self.reasoning_effort:
                 kwargs["reasoning_effort"] = self.reasoning_effort
-            completion = self.client.chat.completions.parse(**kwargs)
+            completion = self.client.chat.completions.create(**kwargs)
             message = completion.choices[0].message
 
             if message.tool_calls:
@@ -129,7 +83,8 @@ class TeacherAgent:
                             tool_call.function.arguments
                         )
                         clip_id = self.clips.create(args.text)
-                        result = f"clip_id: {clip_id}"
+                        new_clips.append({"clip_id": clip_id, "text": args.text})
+                        result = f"Spoken: {args.text}"
                     except ValidationError as e:
                         result = f"Error: invalid arguments - {e}"
                     logger.info("tool_result[%s]: %s", tool_call.id, result)
@@ -142,6 +97,6 @@ class TeacherAgent:
                     )
                 continue
 
-            logger.info("assistant (no more tool calls): %s", message.content)
+            logger.info("assistant: %s", message.content)
             self.history.append({"role": "assistant", "content": message.content})
-            return message.parsed
+            return {"text": message.content, "clips": new_clips}

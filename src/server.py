@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from agent import ChatReply, TeacherAgent
+from agent import TeacherAgent
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -35,16 +35,14 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-@app.post("/chat", response_model=ChatReply)
+@app.post("/chat")
 def chat(req: ChatRequest):
     reply = agent.chat(req.message)
-    word_clip_ids = [s.clip_id for s in reply.segments if s.type == "word"]
     logger.info(
-        "chat: %r -> %d segment(s), clip_ids referenced: %s known clip_ids: %s",
+        "chat: %r -> %d clip(s) created: %s",
         req.message,
-        len(reply.segments),
-        word_clip_ids,
-        list(agent.clips.clips.keys()),
+        len(reply["clips"]),
+        reply["clips"],
     )
     return reply
 

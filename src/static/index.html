@@ -67,14 +67,19 @@
     align-self: flex-start;
     background: var(--bubble-bg);
   }
+  .clips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
   .word-btn {
-    display: inline;
     font: inherit;
     color: var(--accent);
     background: none;
-    border: none;
-    border-bottom: 2px dotted var(--accent);
-    padding: 0 1px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 2px 10px;
     cursor: pointer;
   }
   .word-btn:hover {
@@ -201,21 +206,24 @@ async function playClip(clipId, btn) {
   }
 }
 
-function renderSegments(segments) {
+function renderReply(reply) {
   const frag = document.createDocumentFragment();
-  for (const seg of segments) {
-    if (seg.type === "word") {
-      debug(`Rendering word segment "${seg.display}" -> clip_id "${seg.clip_id}"`);
+  frag.appendChild(document.createTextNode(reply.text));
+
+  if (reply.clips.length > 0) {
+    const row = document.createElement("div");
+    row.className = "clips";
+    for (const clip of reply.clips) {
+      debug(`Rendering clip "${clip.text}" -> clip_id "${clip.clip_id}"`);
       const btn = document.createElement("button");
       btn.className = "word-btn";
       btn.type = "button";
-      btn.textContent = seg.display;
-      btn.dataset.clipId = seg.clip_id;
-      btn.addEventListener("click", () => playClip(seg.clip_id, btn));
-      frag.appendChild(btn);
-    } else {
-      frag.appendChild(document.createTextNode(seg.content));
+      btn.textContent = "\u{1F50A} " + clip.text;
+      btn.dataset.clipId = clip.clip_id;
+      btn.addEventListener("click", () => playClip(clip.clip_id, btn));
+      row.appendChild(btn);
     }
+    frag.appendChild(row);
   }
   return frag;
 }
@@ -238,9 +246,9 @@ form.addEventListener("submit", async (e) => {
     });
     debug(`POST /chat -> ${res.status} ${res.statusText}`, res.ok ? "ok" : "err");
     const data = await res.json();
-    debug("Response segments: " + JSON.stringify(data.segments));
+    debug("Response: " + JSON.stringify(data));
     placeholder.textContent = "";
-    placeholder.appendChild(renderSegments(data.segments));
+    placeholder.appendChild(renderReply(data));
   } catch (err) {
     debug("Error handling /chat: " + err, "err");
     placeholder.textContent = "Error: " + err;
