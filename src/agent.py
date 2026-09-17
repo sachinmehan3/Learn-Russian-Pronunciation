@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Literal, Union
 
@@ -9,6 +10,8 @@ from clips import ClipStore
 from tts import RussianTTS
 
 load_dotenv()
+
+logger = logging.getLogger("uvicorn.error")
 
 
 class CreateClipArgs(BaseModel):
@@ -83,6 +86,7 @@ class TeacherAgent:
         self.history = []
 
     def chat(self, user_message: str) -> ChatReply:
+        logger.info("user: %s", user_message)
         self.history.append({"role": "user", "content": user_message})
 
         while True:
@@ -95,8 +99,17 @@ class TeacherAgent:
             message = completion.choices[0].message
 
             if message.tool_calls:
+                logger.info(
+                    "agent requested %d tool call(s)", len(message.tool_calls)
+                )
                 self.history.append(message.model_dump(exclude_none=True))
                 for tool_call in message.tool_calls:
+                    logger.info(
+                        "tool_call[%s]: %s(%s)",
+                        tool_call.id,
+                        tool_call.function.name,
+                        tool_call.function.arguments,
+                    )
                     try:
                         args = CreateClipArgs.model_validate_json(
                             tool_call.function.arguments
@@ -105,6 +118,7 @@ class TeacherAgent:
                         result = f"clip_id: {clip_id}"
                     except ValidationError as e:
                         result = f"Error: invalid arguments - {e}"
+                    logger.info("tool_result[%s]: %s", tool_call.id, result)
                     self.history.append(
                         {
                             "role": "tool",
@@ -114,5 +128,6 @@ class TeacherAgent:
                     )
                 continue
 
+            logger.info("assistant (no more tool calls): %s", message.content)
             self.history.append({"role": "assistant", "content": message.content})
             return message.parsed
