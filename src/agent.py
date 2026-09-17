@@ -82,6 +82,7 @@ class TeacherAgent:
             base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
         )
         self.model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        self.reasoning_effort = os.environ.get("OPENAI_REASONING_EFFORT", "high") or None
         self.clips = ClipStore(RussianTTS())
         self.history = [
             {
@@ -100,12 +101,15 @@ class TeacherAgent:
         self.history.append({"role": "user", "content": user_message})
 
         while True:
-            completion = self.client.chat.completions.parse(
+            kwargs = dict(
                 model=self.model,
                 messages=self.history,
                 tools=TOOLS,
                 response_format=ChatReply,
             )
+            if self.reasoning_effort:
+                kwargs["reasoning_effort"] = self.reasoning_effort
+            completion = self.client.chat.completions.parse(**kwargs)
             message = completion.choices[0].message
 
             if message.tool_calls:
