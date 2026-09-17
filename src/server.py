@@ -42,6 +42,7 @@ class MessageRequest(BaseModel):
 
 
 class ClipRequest(BaseModel):
+    chat_id: str
     text: str
     voice: str
     slow: bool = False
@@ -124,7 +125,7 @@ def get_chat(chat_id: str):
         if m["role"] == "user":
             messages.append({"role": "user", "text": m["content"]})
         else:
-            html = agent.render_html(m["content"], chat.voice, synthesize=False)
+            html = agent.render_html(m["content"], chat.voice, chat.id, synthesize=False)
             messages.append({"role": "assistant", "html": html})
     return {**chat.summary(), "messages": messages}
 
@@ -138,7 +139,9 @@ def rename_chat(chat_id: str, req: RenameChatRequest):
 
 @app.delete("/chats/{chat_id}", status_code=204)
 def delete_chat(chat_id: str):
-    agent.chats.delete(require_chat(chat_id))
+    chat = require_chat(chat_id)
+    agent.chats.delete(chat)
+    agent.clips.delete_chat(chat.id)
 
 
 @app.post("/chats/{chat_id}/messages")
@@ -147,7 +150,7 @@ def send_message(chat_id: str, req: MessageRequest):
     if not agent.settings.current.configured:
         raise HTTPException(
             status_code=409,
-            detail="Connect a model first in Settings > Preferences > Connections.",
+            detail="Connect a model first in Settings > Connections.",
         )
 
     def event_stream():
@@ -161,10 +164,11 @@ def send_message(chat_id: str, req: MessageRequest):
 
 @app.post("/clips")
 def create_clip(req: ClipRequest):
+    chat = require_chat(req.chat_id)
     require_voice(req.voice)
     if not CYRILLIC_RUN.fullmatch(req.text):
         raise HTTPException(status_code=400, detail="Text must be Cyrillic")
-    clip_id = agent.clips.create(req.text, req.voice, slow=req.slow)
+    clip_id = agent.clips.create(chat.id, req.text, req.voice, slow=req.slow)
     logger.info("clip %r (voice=%s, slow=%s) -> %s", req.text, req.voice, req.slow, clip_id)
     return {"clip_id": clip_id}
 

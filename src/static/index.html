@@ -1056,7 +1056,9 @@ async function playVariant({ clipId, slow }) {
   setPanelStatus(makeSpinner(slow ? "Creating slower version..." : "Creating audio...").el);
   try {
     if (!clipId) {
-      const res = await api("POST", "/clips", { text: request.text, voice: request.voice, slow });
+      const res = await api("POST", "/clips", {
+      chat_id: request.chatId, text: request.text, voice: request.voice, slow,
+    });
       clipId = (await res.json()).clip_id;
     }
     if (state.panel !== request) return;
@@ -1073,7 +1075,7 @@ async function playVariant({ clipId, slow }) {
 function openPanel(btn) {
   document.querySelectorAll(".word-btn.active").forEach((b) => b.classList.remove("active"));
   btn.classList.add("active");
-  state.panel = { text: btn.textContent, voice: btn.dataset.voice };
+  state.panel = { chatId: state.chat.chat_id, text: btn.textContent, voice: btn.dataset.voice };
   panelWord.textContent = state.panel.text;
   fillVoiceSelect(panelVoice, state.panel.voice);
   wordPanel.hidden = false;

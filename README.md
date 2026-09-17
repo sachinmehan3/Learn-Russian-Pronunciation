@@ -62,8 +62,10 @@ clip_ids exist, so it can't get them wrong.
 
 Chats are saved to `chats/<id>.jsonl`: a meta line (title, voice, created date)
 followed by one line per message. A chat is only written once its first message
-is sent. Audio isn't saved — `audio_output/` is wiped on startup, and words in
-reopened chats are synthesized the first time they're clicked.
+is sent. Audio isn't saved between runs — each chat's clips live in
+`audio_output/<chat-id>/`, the whole folder is wiped on startup, and words in
+reopened chats are synthesized the first time they're clicked. Deleting a chat
+deletes its audio with it.
 
 ### Stress marks
 

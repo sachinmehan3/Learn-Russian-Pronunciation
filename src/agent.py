@@ -98,9 +98,12 @@ class TeacherAgent:
         self.chats.add_message(chat, "assistant", text)
         yield {"type": "text_done"}
 
-        yield {"type": "html", "html": self.render_html(text, chat.voice, synthesize=True)}
+        yield {
+            "type": "html",
+            "html": self.render_html(text, chat.voice, chat.id, synthesize=True),
+        }
 
-    def render_html(self, text: str, voice: str, synthesize: bool) -> str:
+    def render_html(self, text: str, voice: str, chat_id: str, synthesize: bool) -> str:
         """Markdown -> HTML with each Cyrillic run wrapped in a word button.
 
         With synthesize=True each word's clip is created up front so the first
@@ -112,13 +115,13 @@ class TeacherAgent:
         rendered = MARKDOWN_BOLD.sub(r"<strong>\1</strong>", rendered)
         rendered = MARKDOWN_ITALIC.sub(r"<em>\1</em>", rendered)
         return CYRILLIC_RUN.sub(
-            lambda m: self._word_button(m.group(), voice, synthesize), rendered
+            lambda m: self._word_button(m.group(), voice, chat_id, synthesize), rendered
         )
 
-    def _word_button(self, word: str, voice: str, synthesize: bool) -> str:
+    def _word_button(self, word: str, voice: str, chat_id: str, synthesize: bool) -> str:
         clip_attr = ""
         if synthesize:
-            clip_id = self.clips.create(word, voice)
+            clip_id = self.clips.create(chat_id, word, voice)
             logger.info("clip created for %r (voice=%s) -> %s", word, voice, clip_id)
             clip_attr = f' data-clip-id="{clip_id}"'
         return (
