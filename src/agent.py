@@ -1,13 +1,17 @@
-import json
 import os
 import winsound
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from pydantic import BaseModel, ValidationError
 
 from tts import RussianTTS
 
 load_dotenv()
+
+
+class SpeakRussianArgs(BaseModel):
+    text: str
 
 TOOLS = [
     {
@@ -76,8 +80,13 @@ class TeacherAgent:
             self.history.append(message.model_dump(exclude_none=True))
 
             for tool_call in message.tool_calls:
-                args = json.loads(tool_call.function.arguments)
-                result = self.speak_russian(args["text"])
+                try:
+                    args = SpeakRussianArgs.model_validate_json(
+                        tool_call.function.arguments
+                    )
+                    result = self.speak_russian(args.text)
+                except ValidationError as e:
+                    result = f"Error: invalid arguments - {e}"
                 self.history.append(
                     {
                         "role": "tool",
