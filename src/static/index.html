@@ -36,6 +36,40 @@
       --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     }
   }
+
+  /* Dedicated Light Theme (Warm Linen & Rich Indigo) */
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #fbf9f5;
+    --fg: #23211e;
+    --muted: #736b63;
+    --bubble-bg: #f2ece4;
+    --side-bg: #f7f2ea;
+    --panel-bg: #ffffff;
+    --hover: rgba(0, 0, 0, 0.05);
+    --accent: #4338ca;
+    --accent-soft: rgba(67, 56, 202, 0.12);
+    --border: #e4dcce;
+    --danger: #dc2626;
+    --shadow: 0 8px 24px rgba(60, 40, 20, 0.08);
+  }
+
+  /* Dedicated Dark Theme (Midnight Obsidian & Electric Violet) */
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b0f19;
+    --fg: #f1f5f9;
+    --muted: #94a3b8;
+    --bubble-bg: #151e2e;
+    --side-bg: #0e1422;
+    --panel-bg: #121927;
+    --hover: rgba(255, 255, 255, 0.08);
+    --accent: #8b5cf6;
+    --accent-soft: rgba(139, 92, 246, 0.18);
+    --border: #1e293b;
+    --danger: #f87171;
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+  }
   [hidden] { display: none !important; }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -239,6 +273,45 @@
   .msg.streaming, .msg.user, .msg.error { white-space: pre-wrap; }
   .msg.user { align-self: flex-end; background: var(--accent); color: #fff; }
   .msg.teacher { align-self: flex-start; background: var(--bubble-bg); }
+  .thinking-box {
+    margin: 0 0 10px 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--side-bg);
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+    white-space: normal;
+  }
+  .thinking-box summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--muted);
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    outline: none;
+  }
+  .thinking-box summary:hover {
+    color: var(--fg);
+  }
+  .thinking-box summary .spinner-icon {
+    width: 11px;
+    height: 11px;
+    border-width: 1.5px;
+  }
+  .thinking-content {
+    margin-top: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+  .reply-content > :first-child { margin-top: 0; }
+  .reply-content > :last-child { margin-bottom: 0; }
   .msg > :first-child { margin-top: 0; }
   .msg > :last-child { margin-bottom: 0; }
   .msg p { margin: 0.6em 0; }
@@ -493,6 +566,146 @@
   .btn.danger:hover:not(:disabled) { background: var(--danger); filter: brightness(1.08); }
   .btn svg { flex-shrink: 0; }
 
+  /* Preferences modal sidebar & tab navigation */
+  .modal-sidebar {
+    width: 170px;
+    flex-shrink: 0;
+    background: var(--side-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 14px 8px;
+    gap: 4px;
+  }
+  .modal-sidebar-title {
+    padding: 2px 10px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .modal-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .modal-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--fg);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .modal-nav-item:hover {
+    background: var(--hover);
+  }
+  .modal-nav-item.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .modal-nav-item svg {
+    flex-shrink: 0;
+  }
+
+  /* Theme cards in Appearance tab */
+  .theme-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .theme-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    background: var(--bg);
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+  .theme-card:hover {
+    border-color: var(--accent);
+    background: var(--hover);
+  }
+  .theme-card.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .theme-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .theme-preview {
+    height: 60px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    display: flex;
+    overflow: hidden;
+  }
+  .theme-preview-default { background: #ffffff; }
+  .theme-preview-default .preview-sidebar { width: 28%; background: #f7f8fa; border-right: 1px solid #d8dde3; }
+  .theme-preview-default .preview-main { flex: 1; padding: 6px; display: flex; flex-direction: column; gap: 5px; justify-content: center; }
+  .theme-preview-default .preview-bubble { height: 11px; width: 80%; border-radius: 4px; background: #f0f2f5; }
+  .theme-preview-default .preview-accent { height: 9px; width: 45%; border-radius: 3px; background: #2563eb; align-self: flex-end; }
+
+  .theme-preview-light { background: #fbf9f5; }
+  .theme-preview-light .preview-sidebar { width: 28%; background: #f7f2ea; border-right: 1px solid #e4dcce; }
+  .theme-preview-light .preview-main { flex: 1; padding: 6px; display: flex; flex-direction: column; gap: 5px; justify-content: center; }
+  .theme-preview-light .preview-bubble { height: 11px; width: 80%; border-radius: 4px; background: #f2ece4; }
+  .theme-preview-light .preview-accent { height: 9px; width: 45%; border-radius: 3px; background: #4338ca; align-self: flex-end; }
+
+  .theme-preview-dark { background: #0b0f19; }
+  .theme-preview-dark .preview-sidebar { width: 28%; background: #0e1422; border-right: 1px solid #1e293b; }
+  .theme-preview-dark .preview-main { flex: 1; padding: 6px; display: flex; flex-direction: column; gap: 5px; justify-content: center; }
+  .theme-preview-dark .preview-bubble { height: 11px; width: 80%; border-radius: 4px; background: #151e2e; }
+  .theme-preview-dark .preview-accent { height: 9px; width: 45%; border-radius: 3px; background: #8b5cf6; align-self: flex-end; }
+
+  .theme-info { display: flex; flex-direction: column; gap: 2px; }
+  .theme-name { font-weight: 600; font-size: 0.9rem; color: var(--fg); }
+  .theme-desc { font-size: 0.75rem; color: var(--muted); }
+
+  @media (max-width: 600px) {
+    .modal-card:not(.single) {
+      flex-direction: column;
+      min-height: 0;
+    }
+    .modal-sidebar {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      flex-direction: row;
+      align-items: center;
+      padding: 6px 10px;
+    }
+    .modal-sidebar-title {
+      display: none;
+    }
+    .modal-nav {
+      flex-direction: row;
+      gap: 6px;
+      width: 100%;
+    }
+    .modal-nav-item {
+      justify-content: center;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+  }
+
   @media (max-width: 860px) {
     #word-panel {
       position: fixed;
@@ -680,20 +893,88 @@
 </div>
 
 <div id="prefs" class="modal" hidden>
-  <div class="modal-card single" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
+    <aside class="modal-sidebar" aria-label="Preferences Navigation">
+      <div class="modal-sidebar-title">Preferences</div>
+      <nav class="modal-nav">
+        <button id="tab-btn-voice" class="modal-nav-item active" type="button" data-tab="voice">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          <span>Voice</span>
+        </button>
+        <button id="tab-btn-appearance" class="modal-nav-item" type="button" data-tab="appearance">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          <span>Appearance</span>
+        </button>
+      </nav>
+    </aside>
+
     <section class="modal-body">
       <div class="modal-head">
-        <h2 id="prefs-title">Preferences</h2>
+        <h2 id="prefs-title">Voice</h2>
         <button id="close-prefs" class="icon-btn" aria-label="Close preferences">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-      <div class="settings-panel">
+
+      <div id="prefs-panel-voice" class="settings-panel">
         <div class="field">
           <label for="default-voice">Default voice</label>
           <select id="default-voice"></select>
         </div>
         <p class="hint">Used when you start a new chat. The current chat keeps the voice it started with.</p>
+      </div>
+
+      <div id="prefs-panel-appearance" class="settings-panel" hidden>
+        <div class="field">
+          <label>Theme</label>
+          <div class="theme-options-grid">
+            <label class="theme-card active" data-theme="default">
+              <input type="radio" name="app-theme" value="default" class="theme-radio" checked>
+              <div class="theme-preview theme-preview-default">
+                <div class="preview-sidebar"></div>
+                <div class="preview-main">
+                  <div class="preview-bubble"></div>
+                  <div class="preview-accent"></div>
+                </div>
+              </div>
+              <div class="theme-info">
+                <div class="theme-name">Default</div>
+                <div class="theme-desc">Current (System adaptive)</div>
+              </div>
+            </label>
+
+            <label class="theme-card" data-theme="light">
+              <input type="radio" name="app-theme" value="light" class="theme-radio">
+              <div class="theme-preview theme-preview-light">
+                <div class="preview-sidebar"></div>
+                <div class="preview-main">
+                  <div class="preview-bubble"></div>
+                  <div class="preview-accent"></div>
+                </div>
+              </div>
+              <div class="theme-info">
+                <div class="theme-name">Light Theme</div>
+                <div class="theme-desc">Warm &amp; Crisp</div>
+              </div>
+            </label>
+
+            <label class="theme-card" data-theme="dark">
+              <input type="radio" name="app-theme" value="dark" class="theme-radio">
+              <div class="theme-preview theme-preview-dark">
+                <div class="preview-sidebar"></div>
+                <div class="preview-main">
+                  <div class="preview-bubble"></div>
+                  <div class="preview-accent"></div>
+                </div>
+              </div>
+              <div class="theme-info">
+                <div class="theme-name">Dark Theme</div>
+                <div class="theme-desc">Midnight Obsidian</div>
+              </div>
+            </label>
+          </div>
+        </div>
+        <p class="hint">Pick a theme for the tutor. Saved in your browser preferences.</p>
       </div>
     </section>
   </div>
@@ -1027,10 +1308,21 @@ chatList.addEventListener("scroll", closeChatMenu);
 
 function renderReply(bubble, html) {
   bubble.classList.remove("streaming");
-  bubble.innerHTML = html;
-  bubble.querySelectorAll(".word-btn").forEach((btn) => {
+  const thinkingBox = bubble.querySelector(".thinking-box");
+  const container = document.createElement("div");
+  container.className = "reply-content";
+  container.innerHTML = html;
+  container.querySelectorAll(".word-btn").forEach((btn) => {
     btn.addEventListener("click", () => openPanel(btn));
   });
+  if (thinkingBox) {
+    bubble.replaceChildren(thinkingBox, container);
+  } else {
+    bubble.replaceChildren(...container.childNodes);
+    bubble.querySelectorAll(".word-btn").forEach((btn) => {
+      btn.addEventListener("click", () => openPanel(btn));
+    });
+  }
 }
 
 function setStreaming(on) {
@@ -1053,9 +1345,12 @@ form.addEventListener("submit", async (e) => {
 
   const bubble = addMessage("teacher", document.createTextNode(""));
   bubble.classList.add("streaming");
-  const textNode = bubble.firstChild;
+  const answerNode = bubble.firstChild;
   const spinner = makeSpinner("Thinking...");
   bubble.appendChild(spinner.el);
+
+  let thinkingBox = null;
+  let thinkingText = null;
 
   setStreaming(true);
   try {
@@ -1073,11 +1368,45 @@ form.addEventListener("submit", async (e) => {
       for (const part of parts) {
         if (!part.startsWith("data: ")) continue;
         const event = JSON.parse(part.slice(6));
-        if (event.type === "delta") {
-          textNode.textContent += event.content;
+        if (event.type === "thinking_delta") {
+          if (!thinkingBox) {
+            if (spinner.el.parentNode) spinner.el.remove();
+            thinkingBox = document.createElement("details");
+            thinkingBox.className = "thinking-box";
+            thinkingBox.open = true;
+
+            const summary = document.createElement("summary");
+            const spinIcon = document.createElement("span");
+            spinIcon.className = "spinner-icon";
+            const label = document.createElement("span");
+            label.className = "thinking-label";
+            label.textContent = "Thinking...";
+            summary.append(spinIcon, label);
+
+            thinkingText = document.createElement("div");
+            thinkingText.className = "thinking-content";
+
+            thinkingBox.append(summary, thinkingText);
+            bubble.insertBefore(thinkingBox, answerNode);
+          }
+          thinkingText.textContent += event.content;
+          thinkingText.scrollTop = thinkingText.scrollHeight;
+          log.scrollTop = log.scrollHeight;
+        } else if (event.type === "delta") {
+          if (spinner.el.parentNode) spinner.el.remove();
+          if (thinkingBox) {
+            const summary = thinkingBox.querySelector("summary");
+            if (summary && summary.querySelector(".spinner-icon")) {
+              summary.replaceChildren(document.createTextNode("Thought process"));
+              thinkingBox.open = false;
+            }
+          }
+          answerNode.textContent += event.content;
           log.scrollTop = log.scrollHeight;
         } else if (event.type === "text_done") {
           spinner.setLabel("Creating pronunciation audio...");
+          bubble.appendChild(spinner.el);
+          log.scrollTop = log.scrollHeight;
         } else if (event.type === "html") {
           renderReply(bubble, event.html);
           log.scrollTop = log.scrollHeight;
@@ -1432,12 +1761,52 @@ function closeConnections() {
   returnFocus?.focus?.();
 }
 
-function openPrefs() {
+function loadTheme() {
+  try {
+    const saved = localStorage.getItem("theme");
+    if (saved && ["default", "light", "dark"].includes(saved)) return saved;
+  } catch {}
+  return "default";
+}
+
+function applyTheme(theme) {
+  if (!theme || theme === "default") {
+    document.documentElement.removeAttribute("data-theme");
+  } else {
+    document.documentElement.setAttribute("data-theme", theme);
+  }
+  try {
+    localStorage.setItem("theme", theme);
+  } catch {}
+  updateThemePickerUI(theme);
+}
+
+function updateThemePickerUI(theme) {
+  document.querySelectorAll(".theme-card").forEach((card) => {
+    const isCurrent = card.dataset.theme === theme;
+    card.classList.toggle("active", isCurrent);
+    const radio = card.querySelector(".theme-radio");
+    if (radio) radio.checked = isCurrent;
+  });
+}
+
+function setPrefsTab(tab) {
+  document.querySelectorAll(".modal-nav-item").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  });
+  $("prefs-panel-voice").hidden = tab !== "voice";
+  $("prefs-panel-appearance").hidden = tab !== "appearance";
+  $("prefs-title").textContent = tab === "appearance" ? "Appearance" : "Voice";
+}
+
+function openPrefs(tab = "voice") {
   setSettingsMenu(false);
   returnFocus = document.activeElement;
   fillVoiceSelect(defaultVoiceSelect, state.defaultVoice);
+  updateThemePickerUI(loadTheme());
+  setPrefsTab(tab);
   prefs.hidden = false;
-  defaultVoiceSelect.focus();
+  if (tab === "voice") defaultVoiceSelect.focus();
 }
 
 function closePrefs() {
@@ -1538,13 +1907,25 @@ $("refresh-models").addEventListener("click", loadModels);
 $("open-connections").addEventListener("click", openConnections);
 $("close-connections").addEventListener("click", closeConnections);
 connections.addEventListener("click", (e) => { if (e.target === connections) closeConnections(); });
-$("open-prefs").addEventListener("click", openPrefs);
+$("open-prefs").addEventListener("click", () => openPrefs("voice"));
 $("close-prefs").addEventListener("click", closePrefs);
 prefs.addEventListener("click", (e) => { if (e.target === prefs) closePrefs(); });
 defaultVoiceSelect.addEventListener("change", () => {
   state.defaultVoice = defaultVoiceSelect.value;
   saveDefaultVoice(state.defaultVoice);
   debug(`Default voice set to ${state.defaultVoice} (applies to new chats)`);
+});
+
+document.querySelectorAll(".modal-nav-item").forEach((btn) => {
+  btn.addEventListener("click", () => setPrefsTab(btn.dataset.tab));
+});
+
+document.querySelectorAll(".theme-card").forEach((card) => {
+  card.addEventListener("click", () => {
+    const theme = card.dataset.theme;
+    applyTheme(theme);
+    debug(`Theme set to ${theme}`);
+  });
 });
 
 document.addEventListener("keydown", (e) => {
@@ -1561,6 +1942,7 @@ document.addEventListener("keydown", (e) => {
 
 (async () => {
   try {
+    applyTheme(loadTheme());
     const [voicesRes, settingsRes] = await Promise.all([api("GET", "/voices"), api("GET", "/settings")]);
     const data = await voicesRes.json();
     state.settings = await settingsRes.json();

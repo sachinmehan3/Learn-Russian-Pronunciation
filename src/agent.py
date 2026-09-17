@@ -60,6 +60,7 @@ class TeacherAgent:
 
     def chat_stream(self, chat: Chat, user_message: str):
         """Yields dict events as the reply is generated:
+        {"type": "thinking_delta", "content": str} - a chunk of streamed reasoning
         {"type": "delta", "content": str}   - a chunk of streamed reply text
         {"type": "text_done"}               - reply text finished, synthesis starting
         {"type": "html", "html": str}       - final rendered reply, markdown converted
@@ -89,7 +90,22 @@ class TeacherAgent:
                 # Some providers send chunks with no choices (e.g. usage reports).
                 if not chunk.choices:
                     continue
-                delta = chunk.choices[0].delta.content
+                delta_obj = chunk.choices[0].delta
+
+                # Extract thinking/reasoning tokens across providers:
+                # delta.reasoning (Bedrock Mantle / GLM-5), delta.reasoning_content (DeepSeek / Groq),
+                # delta.thought (Gemini proxies), or model_extra dict.
+                reasoning = (
+                    getattr(delta_obj, "reasoning", None)
+                    or getattr(delta_obj, "reasoning_content", None)
+                    or (delta_obj.model_extra.get("reasoning") if delta_obj.model_extra else None)
+                    or (delta_obj.model_extra.get("reasoning_content") if delta_obj.model_extra else None)
+                    or getattr(delta_obj, "thought", None)
+                )
+                if reasoning and isinstance(reasoning, str):
+                    yield {"type": "thinking_delta", "content": reasoning}
+
+                delta = delta_obj.content
                 if delta:
                     chunks.append(delta)
                     yield {"type": "delta", "content": delta}
