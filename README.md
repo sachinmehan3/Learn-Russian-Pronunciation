@@ -26,8 +26,12 @@ pip install -r requirements.txt
 python src/main.py
 ```
 
-The first run downloads the Silero `v4_ru` model (~50MB) via `torch.hub` and caches it
+The first run downloads the Silero `v5_5_ru` model via `torch.hub` and caches it
 locally. Enter Russian text at the prompt; a `.wav` file is written to `audio_output/`.
+
+`v5_5_ru` is used over the older `v4_ru` because it adds auto-stress, homograph
+resolution, and question-intonation support (questions carry distinct intonation in
+Russian, which matters for pronunciation practice).
 
 ## Project structure
 
@@ -39,5 +43,5 @@ src/
 
 ## Available speakers
 
-`v4_ru` ships with these voices: `aidar`, `baya`, `kseniya`, `xenia`, `eugene`, `random`.
+`v5_5_ru` ships with these voices: `aidar`, `baya`, `kseniya`, `xenia`, `eugene`.
 Default is `xenia`.

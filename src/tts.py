@@ -7,7 +7,7 @@ import torch
 class RussianTTS:
     """Wrapper around Silero's Russian TTS model."""
 
-    def __init__(self, device: str = "cpu", model_id: str = "v4_ru"):
+    def __init__(self, device: str = "cpu", model_id: str = "v5_5_ru"):
         self.device = torch.device(device)
         self.model, _ = torch.hub.load(
             repo_or_dir="snakers4/silero-models",

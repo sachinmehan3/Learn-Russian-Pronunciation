@@ -1,6 +1,6 @@
 from tts import RussianTTS
 
-SPEAKERS = ["aidar", "baya", "kseniya", "xenia", "eugene", "random"]
+SPEAKERS = ["aidar", "baya", "kseniya", "xenia", "eugene"]
 
 
 def main() -> None:
