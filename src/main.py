@@ -1,25 +1,20 @@
-from tts import RussianTTS
-
-SPEAKERS = ["aidar", "baya", "kseniya", "xenia", "eugene"]
+from agent import TeacherAgent
 
 
 def main() -> None:
-    print("Loading Silero Russian TTS model (first run downloads it)...")
-    tts = RussianTTS()
-    print("Model loaded. Type Russian text to synthesize, or 'quit' to exit.\n")
+    print("Loading Russian teacher agent...")
+    agent = TeacherAgent()
+    print("Ready. Chat away, or type 'quit' to exit.\n")
 
-    counter = 0
     while True:
-        text = input("Russian text> ").strip()
+        text = input("You> ").strip()
         if text.lower() in {"quit", "exit"}:
             break
         if not text:
             continue
 
-        counter += 1
-        output_path = f"audio_output/phrase_{counter}.wav"
-        path = tts.synthesize(text, speaker="xenia", output_path=output_path)
-        print(f"Saved: {path}\n")
+        reply = agent.chat(text)
+        print(f"Teacher> {reply}\n")
 
 
 if __name__ == "__main__":

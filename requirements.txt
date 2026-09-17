@@ -3,3 +3,5 @@ torchaudio
 omegaconf
 soundfile
 numpy
+openai
+python-dotenv
