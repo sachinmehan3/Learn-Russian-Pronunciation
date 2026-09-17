@@ -1,4 +1,5 @@
 import os
+import uuid
 import winsound
 
 from dotenv import load_dotenv
@@ -59,11 +60,15 @@ class TeacherAgent:
         self.history = []
 
     def speak_russian(self, text: str) -> str:
+        output_path = f"audio_output/{uuid.uuid4().hex}.wav"
         if "<speak" in text:
-            path = self.tts.synthesize_ssml(text)
+            path = self.tts.synthesize_ssml(text, output_path=output_path)
         else:
-            path = self.tts.synthesize(text)
-        winsound.PlaySound(path, winsound.SND_FILENAME)
+            path = self.tts.synthesize(text, output_path=output_path)
+        try:
+            winsound.PlaySound(path, winsound.SND_FILENAME)
+        finally:
+            os.remove(path)
         return f"Played: {text}"
 
     def chat(self, user_message: str) -> str:
