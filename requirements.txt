@@ -4,5 +4,6 @@ omegaconf
 soundfile
 numpy
 openai
+markdown-it-py
 fastapi
 uvicorn

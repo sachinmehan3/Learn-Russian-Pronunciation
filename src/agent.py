@@ -1,8 +1,8 @@
-import html
 import logging
 import re
 
 import openai
+from markdown_it import MarkdownIt
 
 from clips import ClipStore
 from settings import Settings, SettingsStore
@@ -18,9 +18,13 @@ logger = logging.getLogger("uvicorn.error")
 _WORD = "[А-Яа-яЁё][А-Яа-яЁё\u0301]*"
 CYRILLIC_RUN = re.compile(f"{_WORD}(?:[ \\-]{_WORD})*")
 
-MARKDOWN_CODE = re.compile(r"`(.+?)`")
-MARKDOWN_BOLD = re.compile(r"\*\*(.+?)\*\*")
-MARKDOWN_ITALIC = re.compile(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)")
+# html=False keeps any raw HTML the model writes as escaped text.
+MARKDOWN = MarkdownIt("gfm-like", {"html": False, "linkify": False})
+
+TAG_SPLIT = re.compile(r"(<[^>]+>)")
+TAG_NAME = re.compile(r"</?\s*([a-zA-Z0-9]+)")
+# Inside these, a pronunciation button would be wrong or invalid markup.
+NO_BUTTON_TAGS = {"code", "pre", "a"}
 
 
 class TeacherAgent:
@@ -110,13 +114,32 @@ class TeacherAgent:
         click plays instantly; otherwise (e.g. reopening an old chat) clips are
         created on demand when a word is clicked.
         """
-        rendered = html.escape(text)
-        rendered = MARKDOWN_CODE.sub(r"<code>\1</code>", rendered)
-        rendered = MARKDOWN_BOLD.sub(r"<strong>\1</strong>", rendered)
-        rendered = MARKDOWN_ITALIC.sub(r"<em>\1</em>", rendered)
-        return CYRILLIC_RUN.sub(
-            lambda m: self._word_button(m.group(), voice, chat_id, synthesize), rendered
-        )
+        return self._link_words(MARKDOWN.render(text).strip(), voice, chat_id, synthesize)
+
+    def _link_words(self, rendered: str, voice: str, chat_id: str, synthesize: bool) -> str:
+        """Wrap Cyrillic runs in the rendered HTML's text, never inside tags.
+
+        Markdown output is HTML, so substituting blindly could rewrite a tag or
+        an attribute value. Splitting on tags keeps the substitution to text, and
+        a depth counter skips content where a button doesn't belong.
+        """
+        out = []
+        skip_depth = 0
+        for part in TAG_SPLIT.split(rendered):
+            if part.startswith("<") and part.endswith(">"):
+                match = TAG_NAME.match(part)
+                name = match.group(1).lower() if match else ""
+                if name in NO_BUTTON_TAGS:
+                    if part.startswith("</"):
+                        skip_depth = max(0, skip_depth - 1)
+                    elif not part.endswith("/>"):
+                        skip_depth += 1
+            elif not skip_depth and part:
+                part = CYRILLIC_RUN.sub(
+                    lambda m: self._word_button(m.group(), voice, chat_id, synthesize), part
+                )
+            out.append(part)
+        return "".join(out)
 
     def _word_button(self, word: str, voice: str, chat_id: str, synthesize: bool) -> str:
         clip_attr = ""

@@ -36,7 +36,8 @@ Cyrillic with a transliteration alongside (e.g. "привет (privet)"). It has
 tools** — it just replies with normal text.
 
 The backend then does all the audio-linking work itself: once the reply finishes
-streaming, it converts the Markdown to HTML and wraps every run of Cyrillic text in
+streaming, it renders the Markdown to HTML (markdown-it-py, GFM tables; raw HTML from the
+model stays escaped) and wraps every run of Cyrillic text outside tags in
 a clickable button with its own synthesized clip. The model never has to know
 clip_ids exist, so it can't get them wrong.
 

@@ -234,11 +234,50 @@
     padding: 10px 14px;
     border-radius: 14px;
     line-height: 1.55;
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
+  .msg.streaming, .msg.user, .msg.error { white-space: pre-wrap; }
   .msg.user { align-self: flex-end; background: var(--accent); color: #fff; }
   .msg.teacher { align-self: flex-start; background: var(--bubble-bg); }
+  .msg > :first-child { margin-top: 0; }
+  .msg > :last-child { margin-bottom: 0; }
+  .msg p { margin: 0.6em 0; }
+  .msg h1, .msg h2, .msg h3, .msg h4 { margin: 0.8em 0 0.4em; line-height: 1.3; }
+  .msg h1 { font-size: 1.25rem; }
+  .msg h2 { font-size: 1.15rem; }
+  .msg h3, .msg h4 { font-size: 1.02rem; }
+  .msg ul, .msg ol { margin: 0.6em 0; padding-left: 1.4em; }
+  .msg li { margin: 0.2em 0; }
+  .msg li > p { margin: 0.2em 0; }
+  .msg hr { height: 1px; margin: 0.9em 0; border: none; background: var(--border); }
+  .msg blockquote {
+    margin: 0.6em 0;
+    padding: 0.1em 0 0.1em 0.9em;
+    border-left: 3px solid var(--border);
+    color: var(--muted);
+  }
+  .msg table {
+    margin: 0.6em 0;
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.95em;
+  }
+  .msg th, .msg td {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  .msg th { background: var(--hover); font-weight: 600; }
+  .msg pre {
+    margin: 0.6em 0;
+    padding: 10px 12px;
+    overflow-x: auto;
+    border-radius: 8px;
+    background: var(--hover);
+  }
+  .msg pre code { padding: 0; background: none; }
+  .msg a { color: var(--accent); }
   .msg code {
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
     font-size: 0.9em;
@@ -969,6 +1008,7 @@ document.addEventListener("click", (e) => {
 chatList.addEventListener("scroll", closeChatMenu);
 
 function renderReply(bubble, html) {
+  bubble.classList.remove("streaming");
   bubble.innerHTML = html;
   bubble.querySelectorAll(".word-btn").forEach((btn) => {
     btn.addEventListener("click", () => openPanel(btn));
@@ -994,6 +1034,7 @@ form.addEventListener("submit", async (e) => {
   addMessage("user", document.createTextNode(text));
 
   const bubble = addMessage("teacher", document.createTextNode(""));
+  bubble.classList.add("streaming");
   const textNode = bubble.firstChild;
   const spinner = makeSpinner("Thinking...");
   bubble.appendChild(spinner.el);
