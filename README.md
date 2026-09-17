@@ -18,11 +18,10 @@ venv\Scripts\Activate.ps1
 source venv/Scripts/activate
 
 pip install -r requirements.txt
-
-cp .env.example .env
-# then edit .env with your OPENAI_API_KEY (and OPENAI_BASE_URL/OPENAI_MODEL if
-# you're using a non-OpenAI, OpenAI-compatible provider)
 ```
+
+Then start the app and set up the model connection in the UI
+(*Settings > Connections*) — there's nothing to configure on disk first.
 
 ## Usage
 
@@ -52,9 +51,14 @@ clip_ids exist, so it can't get them wrong.
 - **Sidebar (left, collapsible)** — *New chat*, your saved chats (named by date
   until you rename them; use the ⋯ menu to rename or delete), and
   *Settings → Preferences*.
-- **Preferences → Voice** sets the default voice for *new* chats. The current chat
-  keeps the voice it started with. The preference is saved in the browser's
-  localStorage.
+- **Settings → Connections** is where the model lives: base URL, API key, and model
+  (the list is fetched from the server; you can also type a name). Below that are
+  temperature, top-p, max output tokens, reasoning effort and the system prompt —
+  leave a number empty to use the model's own default. Saved settings apply from
+  your next message.
+- **Settings → Preferences → Voice** sets the default voice for *new* chats. The
+  current chat keeps the voice it started with. This one preference is saved in the
+  browser's localStorage.
 
 Chats are saved to `chats/<id>.jsonl`: a meta line (title, voice, created date)
 followed by one line per message. A chat is only written once its first message
@@ -80,6 +84,7 @@ src/
   tts.py            - Silero TTS wrapper (normal or slow synthesis, any speaker,
                       stress-mark conversion)
   store.py          - ChatStore: chats persisted as JSONL files
+  settings.py       - SettingsStore: connection + model settings in settings.json
   clips.py          - ClipStore: cached clips keyed by (text, voice, slow)
   agent.py          - TeacherAgent: per-chat history + voice, streaming replies,
                       Markdown -> HTML with clickable Cyrillic words
@@ -93,6 +98,9 @@ src/
 | Method | Path | Purpose |
 |---|---|---|
 | GET  | `/voices` | Available voices and the server default |
+| GET  | `/settings` | Current settings (API key masked to a hint) |
+| PATCH | `/settings` | Update any subset of settings |
+| POST | `/settings/models` `{base_url, api_key}` | List the models a provider offers |
 | GET  | `/chats` | Saved chats, most recently active first |
 | POST | `/chats` `{voice}` | Start a chat with a fixed voice |
 | GET  | `/chats/{id}` | A chat with its rendered messages |
@@ -106,3 +114,18 @@ src/
 
 `v5_5_ru` ships with these voices: `aidar`, `baya`, `kseniya`, `xenia`, `eugene`.
 Default is `xenia`.
+
+## Settings and your API key
+
+Settings are stored in `settings.json` at the project root (gitignored), written by
+the app — not by you. The API key is never sent back to the browser: `GET /settings`
+returns only a hint like `…a1b2`, and saving without touching the key field keeps the
+stored one.
+
+`POST /settings/models` will only use the saved key for the saved base URL. Listing
+models for a different URL requires a key in the request, so a request can't redirect
+your saved key to another host.
+
+Model parameters are only sent when set. An empty temperature, top-p or max-tokens
+field means the parameter is left out of the request entirely, which matters because
+reasoning models reject some of them.

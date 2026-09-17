@@ -4,5 +4,7 @@ __pycache__/
 .env
 audio_output/
 chats/
+settings.json
+settings.tmp
 *.wav
 .silero_cache/

@@ -1,30 +1,15 @@
 import html
 import logging
-import os
 import re
 
-from dotenv import load_dotenv
-from openai import OpenAI
+import openai
 
 from clips import ClipStore
+from settings import Settings, SettingsStore
 from store import Chat, ChatStore
 from tts import DEFAULT_SPEAKER, RussianTTS
 
-load_dotenv()
-
 logger = logging.getLogger("uvicorn.error")
-
-SYSTEM_PROMPT = (
-    "You are a Russian teacher helping an English speaker learn Russian. "
-    "Whenever you introduce a Russian word or phrase, write it in Cyrillic script "
-    "(e.g. привет), and include an English transliteration in parentheses right "
-    "after it (e.g. привет (privet)) so the student can read how it sounds. "
-    "Always mark the stressed vowel of every Russian word that has more than one "
-    "vowel with a combining acute accent placed right after that vowel (e.g. "
-    "приве́т, здра́вствуйте, до́брое у́тро). This shows the student where the stress "
-    "falls, and the audio is pronounced with exactly the stress you mark. Don't "
-    "mark ё, which is always stressed."
-)
 
 # Matches a run of Cyrillic word(s), allowing single spaces/hyphens between them
 # so a whole phrase (e.g. "доброе утро") becomes one clip instead of two. U+0301
@@ -40,15 +25,12 @@ MARKDOWN_ITALIC = re.compile(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)")
 
 class TeacherAgent:
     def __init__(self):
-        self.client = OpenAI(
-            api_key=os.environ["OPENAI_API_KEY"],
-            base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-        )
-        self.model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-        self.reasoning_effort = os.environ.get("OPENAI_REASONING_EFFORT", "high") or None
+        self.settings = SettingsStore()
         self.tts = RussianTTS()
         self.clips = ClipStore(self.tts)
         self.chats = ChatStore()
+        self._client: openai.OpenAI | None = None
+        self._client_key: tuple[str, str] | None = None
 
     @property
     def voices(self) -> list[str]:
@@ -58,31 +40,61 @@ class TeacherAgent:
     def default_voice(self) -> str:
         return DEFAULT_SPEAKER
 
+    def _client_for(self, settings: Settings) -> openai.OpenAI:
+        key = (settings.base_url, settings.api_key)
+        if self._client_key != key:
+            self._client = openai.OpenAI(base_url=settings.base_url, api_key=settings.api_key)
+            self._client_key = key
+        return self._client
+
+    @staticmethod
+    def list_models(base_url: str, api_key: str) -> list[str]:
+        client = openai.OpenAI(base_url=base_url, api_key=api_key, timeout=15, max_retries=0)
+        return sorted(m.id for m in client.models.list())
+
     def chat_stream(self, chat: Chat, user_message: str):
         """Yields dict events as the reply is generated:
         {"type": "delta", "content": str}   - a chunk of streamed reply text
         {"type": "text_done"}               - reply text finished, synthesis starting
         {"type": "html", "html": str}       - final rendered reply, markdown converted
                                                to HTML with clickable Cyrillic words
-        """
-        logger.info("[%s] user: %s", chat.id, user_message)
-        self.chats.add_message(chat, "user", user_message)
+        {"type": "error", "message": str}   - the API call failed; nothing was saved
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}, *chat.messages]
-        kwargs = dict(model=self.model, messages=messages, stream=True)
-        if self.reasoning_effort:
-            kwargs["reasoning_effort"] = self.reasoning_effort
-        stream = self.client.chat.completions.create(**kwargs)
+        The user message and reply are saved together only once the reply
+        succeeds, so a failed attempt (bad key, unknown model) leaves no trace.
+        """
+        settings = self.settings.current
+        logger.info("[%s] user: %s", chat.id, user_message)
+        messages = [
+            {"role": "system", "content": settings.effective_system_prompt},
+            *chat.messages,
+            {"role": "user", "content": user_message},
+        ]
 
         chunks = []
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                chunks.append(delta)
-                yield {"type": "delta", "content": delta}
+        try:
+            stream = self._client_for(settings).chat.completions.create(
+                model=settings.model,
+                messages=messages,
+                stream=True,
+                **settings.request_params(),
+            )
+            for chunk in stream:
+                # Some providers send chunks with no choices (e.g. usage reports).
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    chunks.append(delta)
+                    yield {"type": "delta", "content": delta}
+        except openai.APIError as e:
+            logger.warning("[%s] API error: %s", chat.id, e)
+            yield {"type": "error", "message": describe_api_error(e)}
+            return
 
         text = "".join(chunks)
         logger.info("[%s] assistant: %s", chat.id, text)
+        self.chats.add_message(chat, "user", user_message)
         self.chats.add_message(chat, "assistant", text)
         yield {"type": "text_done"}
 
@@ -113,3 +125,13 @@ class TeacherAgent:
             f'<button type="button" class="word-btn"{clip_attr} '
             f'data-voice="{voice}">{word}</button>'
         )
+
+
+def describe_api_error(e: openai.APIError) -> str:
+    if isinstance(e, openai.AuthenticationError):
+        return "The API key was rejected. Check it in Settings > Connections."
+    if isinstance(e, openai.NotFoundError):
+        return "The model or URL wasn't found. Check Settings > Connections."
+    if isinstance(e, openai.APIConnectionError):
+        return "Couldn't reach the API. Check the base URL in Settings > Connections."
+    return getattr(e, "message", None) or str(e)

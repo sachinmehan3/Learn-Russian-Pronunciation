@@ -4,6 +4,5 @@ omegaconf
 soundfile
 numpy
 openai
-python-dotenv
 fastapi
 uvicorn

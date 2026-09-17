@@ -45,7 +45,7 @@
     color: var(--fg);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  button, select, input { font: inherit; }
+  button, select, input, textarea { font: inherit; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   #layout { display: flex; height: 100vh; }
@@ -260,7 +260,7 @@
   .word-btn:hover { background: var(--accent-soft); }
   .word-btn.active { background: var(--accent-soft); border-bottom-style: solid; }
 
-  form { display: flex; gap: 8px; }
+  #form { display: flex; gap: 8px; }
   #input {
     flex: 1;
     min-width: 0;
@@ -375,24 +375,55 @@
   }
   .modal-card {
     display: flex;
-    width: min(640px, 100%);
-    min-height: 320px;
+    width: min(740px, 100%);
+    min-height: 420px;
+    max-height: calc(100vh - 32px);
     overflow: hidden;
     background: var(--panel-bg);
     border: 1px solid var(--border);
     border-radius: 14px;
     box-shadow: var(--shadow);
   }
-  .modal-nav {
-    width: 170px;
-    flex-shrink: 0;
-    padding: 14px 10px;
-    background: var(--side-bg);
-    border-right: 1px solid var(--border);
+  .modal-card.single { min-height: 0; }
+  .modal-head h2 { margin: 0; font-size: 1.05rem; }
+  .divider { width: 100%; height: 1px; margin: 2px 0; border: none; background: var(--border); }
+  .modal-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 18px; overflow-y: auto; }
+  .settings-panel { display: flex; flex-direction: column; gap: 14px; }
+  .settings-panel input,
+  .settings-panel textarea {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--fg);
+    font-size: 0.95rem;
   }
-  .modal-nav h2 { margin: 4px 8px 12px; font-size: 1rem; }
-  .nav-item.active { background: var(--accent-soft); color: var(--accent); }
-  .modal-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 18px; }
+  .settings-panel select { font-size: 0.95rem; }
+  .settings-panel textarea { resize: vertical; line-height: 1.45; }
+  .settings-panel input:invalid:not(:placeholder-shown),
+  .settings-panel .invalid { border-color: var(--danger); }
+  .field label { color: var(--fg); font-weight: 500; }
+  .input-row { display: flex; gap: 8px; }
+  .input-row .btn { padding: 7px 12px; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .label-row { display: flex; align-items: baseline; justify-content: space-between; }
+  .link-btn {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .link-btn:hover { text-decoration: underline; }
+  .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+  .save-status { font-size: 0.85rem; color: var(--muted); }
+  .save-status.err, .hint.err { color: var(--danger); }
+  .save-status.ok { color: #3aa76d; }
+  .empty .btn { margin-top: 12px; }
+  .msg.error { border: 1px solid var(--danger); color: var(--danger); }
   .modal-head { display: flex; align-items: center; justify-content: space-between; }
   .modal-head h3 { margin: 0; font-size: 1rem; }
   .hint { margin: 0; font-size: 0.85rem; color: var(--muted); }
@@ -425,8 +456,7 @@
     }
   }
   @media (max-width: 520px) {
-    .modal-card { flex-direction: column; }
-    .modal-nav { width: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    .field-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -447,6 +477,7 @@
     </nav>
     <div class="settings-wrap">
       <div id="settings-menu" class="dropup" role="menu" hidden>
+        <button id="open-connections" class="menu-item" role="menuitem">Connections</button>
         <button id="open-prefs" class="menu-item" role="menuitem">Preferences</button>
       </div>
       <button id="settings-btn" class="side-item" title="Settings" aria-haspopup="menu" aria-expanded="false" aria-controls="settings-menu">
@@ -515,22 +546,98 @@
   </div>
 </div>
 
-<div id="prefs" class="modal" hidden>
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
-    <nav class="modal-nav">
-      <h2 id="prefs-title">Preferences</h2>
-      <button class="menu-item nav-item active" type="button">Voice</button>
-    </nav>
+<div id="connections" class="modal" hidden>
+  <div class="modal-card single" role="dialog" aria-modal="true" aria-labelledby="connections-title">
     <section class="modal-body">
       <div class="modal-head">
-        <h3>Voice</h3>
+        <h2 id="connections-title">Connections</h2>
+        <button id="close-connections" class="icon-btn" aria-label="Close connections">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <form id="connections-form" class="settings-panel" novalidate>
+        <p class="hint">Any OpenAI-compatible API works: OpenAI, OpenRouter, Groq, or a local server such as LM Studio or Ollama.</p>
+        <div class="field">
+          <label for="set-base-url">Base URL</label>
+          <input id="set-base-url" type="url" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false" required>
+        </div>
+        <div class="field">
+          <label for="set-api-key">API key</label>
+          <input id="set-api-key" type="password" autocomplete="off" spellcheck="false">
+          <span id="api-key-hint" class="hint"></span>
+        </div>
+        <div class="field">
+          <label for="set-model">Model</label>
+          <div class="input-row">
+            <input id="set-model" list="model-options" placeholder="Pick or type a model" autocomplete="off" spellcheck="false" required>
+            <button id="refresh-models" class="btn" type="button">Refresh</button>
+          </div>
+          <datalist id="model-options"></datalist>
+          <span id="models-status" class="hint" role="status"></span>
+        </div>
+
+        <hr class="divider">
+        <p class="hint">Leave a field empty to use the model's own default. Not every model accepts every setting &mdash; reasoning models often reject temperature and top-p.</p>
+        <div class="field-grid">
+          <div class="field">
+            <label for="set-temperature">Temperature</label>
+            <input id="set-temperature" type="number" min="0" max="2" step="0.1" placeholder="Default" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="set-top-p">Top-p</label>
+            <input id="set-top-p" type="number" min="0" max="1" step="0.05" placeholder="Default" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="set-max-tokens">Max output tokens</label>
+            <input id="set-max-tokens" type="number" min="1" step="1" placeholder="Default" inputmode="numeric">
+          </div>
+          <div class="field">
+            <label for="set-reasoning">Reasoning effort</label>
+            <select id="set-reasoning">
+              <option value="">Default</option>
+              <option value="none">None</option>
+              <option value="minimal">Minimal</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="xhigh">Extra high</option>
+              <option value="max">Max</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <div class="label-row">
+            <label for="set-system-prompt">System prompt</label>
+            <button id="reset-prompt" class="link-btn" type="button">Reset to default</button>
+          </div>
+          <textarea id="set-system-prompt" rows="8"></textarea>
+        </div>
+        <div class="form-actions">
+          <span class="save-status" role="status"></span>
+          <button class="btn primary" type="submit">Save</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</div>
+
+<div id="prefs" class="modal" hidden>
+  <div class="modal-card single" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
+    <section class="modal-body">
+      <div class="modal-head">
+        <h2 id="prefs-title">Preferences</h2>
         <button id="close-prefs" class="icon-btn" aria-label="Close preferences">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-      <label class="field" for="default-voice">Default voice</label>
-      <select id="default-voice"></select>
-      <p class="hint">Used when you start a new chat. The current chat keeps the voice it started with.</p>
+      <div class="settings-panel">
+        <div class="field">
+          <label for="default-voice">Default voice</label>
+          <select id="default-voice"></select>
+        </div>
+        <p class="hint">Used when you start a new chat. The current chat keeps the voice it started with.</p>
+      </div>
     </section>
   </div>
 </div>
@@ -561,6 +668,7 @@ const state = {
   chat: null,       // { chat_id, voice }
   panel: null,      // { text, voice }
   streaming: false,
+  settings: null,   // public settings from the server (no API key)
 };
 
 // ---------- utilities ----------
@@ -584,8 +692,20 @@ async function api(method, url, body) {
   }
   const res = await fetch(url, options);
   debug(`${method} ${url} -> ${res.status}`, res.ok ? "ok" : "err");
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new Error(await errorMessage(res));
   return res;
+}
+
+async function errorMessage(res) {
+  try {
+    const { detail } = await res.json();
+    if (typeof detail === "string") return detail;
+    // FastAPI validation errors: [{loc: [..., field], msg}]
+    if (Array.isArray(detail) && detail.length) {
+      return detail.map((d) => `${d.loc.at(-1)}: ${d.msg}`).join("; ");
+    }
+  } catch {}
+  return `Request failed (HTTP ${res.status})`;
 }
 
 function voiceLabel(v) {
@@ -634,7 +754,18 @@ async function playClip(clipId) {
 function showEmptyState() {
   const empty = document.createElement("div");
   empty.className = "empty";
-  empty.textContent = "Say hi to start learning. Click any Russian word to hear it.";
+  if (state.settings?.configured) {
+    empty.textContent = "Say hi to start learning. Click any Russian word to hear it.";
+  } else {
+    const text = document.createElement("div");
+    text.textContent = "Connect a model to start chatting.";
+    const btn = document.createElement("button");
+    btn.className = "btn primary";
+    btn.type = "button";
+    btn.textContent = "Set up connection";
+    btn.addEventListener("click", openConnections);
+    empty.append(text, btn);
+  }
   log.replaceChildren(empty);
 }
 
@@ -855,6 +986,10 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = input.value.trim();
   if (!text || state.streaming || !state.chat) return;
+  if (!state.settings?.configured) {
+    openConnections();
+    return;
+  }
   input.value = "";
   addMessage("user", document.createTextNode(text));
 
@@ -887,12 +1022,15 @@ form.addEventListener("submit", async (e) => {
         } else if (event.type === "html") {
           renderReply(bubble, event.html);
           log.scrollTop = log.scrollHeight;
+        } else if (event.type === "error") {
+          throw new Error(event.message);
         }
       }
     }
   } catch (err) {
     debug("Error handling message: " + err, "err");
-    bubble.textContent = "Something went wrong: " + err.message;
+    bubble.classList.add("error");
+    bubble.textContent = err.message + " (This message wasn't saved.)";
   } finally {
     setStreaming(false);
     refreshChatList().catch((err) => debug("Couldn't refresh chats: " + err, "err"));
@@ -978,16 +1116,169 @@ document.addEventListener("click", (e) => {
   if (!settingsMenu.hidden && !e.target.closest(".settings-wrap")) setSettingsMenu(false);
 });
 
+// ---------- connections & preferences ----------
+
+const connections = $("connections");
+const connForm = $("connections-form");
+const baseUrlInput = $("set-base-url");
+const apiKeyInput = $("set-api-key");
+const apiKeyHint = $("api-key-hint");
+const modelInput = $("set-model");
+const modelOptions = $("model-options");
+const modelsStatus = $("models-status");
+const promptInput = $("set-system-prompt");
+let returnFocus = null;
+let modelsRequest = 0;
+
+function setStatus(el, text, kind = "") {
+  el.textContent = text;
+  el.classList.toggle("err", kind === "err");
+  el.classList.toggle("ok", kind === "ok");
+}
+
+function fillApiKeyField() {
+  const hint = state.settings.api_key_hint;
+  apiKeyInput.value = "";
+  apiKeyInput.placeholder = hint ? `Saved key ${hint}` : "sk-...";
+  apiKeyHint.textContent = hint
+    ? "Leave blank to keep the saved key."
+    : "Local servers that don't need a key accept any value.";
+}
+
+function fillConnectionsForm() {
+  const s = state.settings;
+  baseUrlInput.value = s.base_url;
+  fillApiKeyField();
+  modelInput.value = s.model;
+  $("set-temperature").value = s.temperature ?? "";
+  $("set-top-p").value = s.top_p ?? "";
+  $("set-max-tokens").value = s.max_tokens ?? "";
+  $("set-reasoning").value = s.reasoning_effort ?? "";
+  promptInput.value = s.system_prompt;
+  setStatus(connForm.querySelector(".save-status"), "");
+  connForm.querySelectorAll(".invalid").forEach((el) => el.classList.remove("invalid"));
+}
+
+function openConnections() {
+  setSettingsMenu(false);
+  returnFocus = document.activeElement;
+  fillConnectionsForm();
+  connections.hidden = false;
+  baseUrlInput.focus();
+  loadModels();
+}
+
+function closeConnections() {
+  connections.hidden = true;
+  returnFocus?.focus?.();
+}
+
 function openPrefs() {
   setSettingsMenu(false);
+  returnFocus = document.activeElement;
   fillVoiceSelect(defaultVoiceSelect, state.defaultVoice);
   prefs.hidden = false;
   defaultVoiceSelect.focus();
 }
+
 function closePrefs() {
   prefs.hidden = true;
-  settingsBtn.focus();
+  returnFocus?.focus?.();
 }
+
+async function loadModels() {
+  const base_url = baseUrlInput.value.trim();
+  const api_key = apiKeyInput.value.trim();
+  const savedKeyApplies = state.settings.api_key_hint
+    && base_url.replace(/\/+$/, "") === state.settings.base_url;
+  const request = ++modelsRequest;
+  if (!base_url || (!api_key && !savedKeyApplies)) {
+    modelOptions.replaceChildren();
+    setStatus(modelsStatus, "Enter a base URL and API key to load the available models.");
+    return;
+  }
+  setStatus(modelsStatus, "Loading models...");
+  try {
+    const res = await api("POST", "/settings/models", { base_url, api_key: api_key || null });
+    const { models } = await res.json();
+    if (request !== modelsRequest) return;
+    modelOptions.replaceChildren(...models.map((m) => new Option(m, m)));
+    setStatus(modelsStatus, models.length
+      ? `${models.length} models available. Pick one from the list or type a name.`
+      : "This server didn't list any models. Type the model name.");
+  } catch (err) {
+    if (request !== modelsRequest) return;
+    modelOptions.replaceChildren();
+    setStatus(modelsStatus, "Couldn't load models: " + err.message, "err");
+  }
+}
+
+function numberOrNull(id) {
+  const value = $(id).value.trim();
+  return value === "" ? null : Number(value);
+}
+
+connForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const status = connForm.querySelector(".save-status");
+  const submit = connForm.querySelector('button[type="submit"]');
+  const base_url = baseUrlInput.value.trim();
+  const model = modelInput.value.trim();
+  const api_key = apiKeyInput.value.trim();
+
+  const fields = [...connForm.querySelectorAll("input[type=number]")];
+  const invalid = fields.filter((el) => !el.checkValidity());
+  fields.forEach((el) => el.classList.toggle("invalid", invalid.includes(el)));
+  if (invalid.length) {
+    setStatus(status, "Fix the highlighted fields.", "err");
+    invalid[0].focus();
+    return;
+  }
+  if (!base_url || !model || (!api_key && !state.settings.api_key_hint)) {
+    setStatus(status, "Base URL, API key and model are all required.", "err");
+    return;
+  }
+
+  const prompt = promptInput.value.trim();
+  const changes = {
+    base_url,
+    model,
+    temperature: numberOrNull("set-temperature"),
+    top_p: numberOrNull("set-top-p"),
+    max_tokens: numberOrNull("set-max-tokens"),
+    reasoning_effort: $("set-reasoning").value || null,
+    system_prompt: prompt && prompt !== state.settings.default_system_prompt ? prompt : null,
+  };
+  if (api_key) changes.api_key = api_key;
+
+  const wasConfigured = state.settings.configured;
+  submit.disabled = true;
+  setStatus(status, "Saving...");
+  try {
+    const res = await api("PATCH", "/settings", changes);
+    state.settings = await res.json();
+    setStatus(status, "Saved. Applies from your next message.", "ok");
+    baseUrlInput.value = state.settings.base_url;
+    promptInput.value = state.settings.system_prompt;
+    fillApiKeyField();
+    if (!wasConfigured && !log.querySelector(".msg")) showEmptyState();
+  } catch (err) {
+    setStatus(status, err.message, "err");
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+$("reset-prompt").addEventListener("click", () => {
+  promptInput.value = state.settings.default_system_prompt;
+  promptInput.focus();
+});
+baseUrlInput.addEventListener("change", loadModels);
+apiKeyInput.addEventListener("change", loadModels);
+$("refresh-models").addEventListener("click", loadModels);
+$("open-connections").addEventListener("click", openConnections);
+$("close-connections").addEventListener("click", closeConnections);
+connections.addEventListener("click", (e) => { if (e.target === connections) closeConnections(); });
 $("open-prefs").addEventListener("click", openPrefs);
 $("close-prefs").addEventListener("click", closePrefs);
 prefs.addEventListener("click", (e) => { if (e.target === prefs) closePrefs(); });
@@ -1000,6 +1291,7 @@ defaultVoiceSelect.addEventListener("change", () => {
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!confirmDelete.hidden) closeDeleteDialog();
+  else if (!connections.hidden) closeConnections();
   else if (!chatMenu.hidden) closeChatMenu();
   else if (!prefs.hidden) closePrefs();
   else if (!settingsMenu.hidden) setSettingsMenu(false);
@@ -1010,8 +1302,9 @@ document.addEventListener("keydown", (e) => {
 
 (async () => {
   try {
-    const res = await fetch("/voices");
-    const data = await res.json();
+    const [voicesRes, settingsRes] = await Promise.all([api("GET", "/voices"), api("GET", "/settings")]);
+    const data = await voicesRes.json();
+    state.settings = await settingsRes.json();
     state.voices = data.voices;
     state.defaultVoice = loadDefaultVoice(data.default);
     await Promise.all([refreshChatList(), newChat()]);

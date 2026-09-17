@@ -6,9 +6,11 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+import openai
 from pydantic import BaseModel
 
-from agent import CYRILLIC_RUN, TeacherAgent
+from agent import CYRILLIC_RUN, TeacherAgent, describe_api_error
+from settings import SettingsUpdate, normalize_base_url
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -45,6 +47,11 @@ class ClipRequest(BaseModel):
     slow: bool = False
 
 
+class ModelsRequest(BaseModel):
+    base_url: str
+    api_key: str | None = None
+
+
 def require_voice(voice: str) -> None:
     if voice not in agent.voices:
         raise HTTPException(status_code=400, detail=f"Unknown voice {voice!r}")
@@ -58,6 +65,35 @@ def index():
 @app.get("/voices")
 def voices():
     return {"voices": agent.voices, "default": agent.default_voice}
+
+
+@app.get("/settings")
+def get_settings():
+    return agent.settings.current.public()
+
+
+@app.patch("/settings")
+def update_settings(req: SettingsUpdate):
+    updated = agent.settings.update(req.changes())
+    logger.info("settings updated: %s", sorted(req.changes()))
+    return updated.public()
+
+
+@app.post("/settings/models")
+def list_models(req: ModelsRequest):
+    base_url = normalize_base_url(req.base_url)
+    api_key = (req.api_key or "").strip()
+    saved = agent.settings.current
+    # The saved key is only ever sent to the saved URL, so a request can't
+    # redirect it to an arbitrary host.
+    if not api_key and base_url == saved.base_url:
+        api_key = saved.api_key
+    if not base_url or not api_key:
+        raise HTTPException(status_code=400, detail="Enter a base URL and API key first.")
+    try:
+        return {"models": agent.list_models(base_url, api_key)}
+    except openai.APIError as e:
+        raise HTTPException(status_code=400, detail=describe_api_error(e))
 
 
 def require_chat(chat_id: str):
@@ -108,6 +144,11 @@ def delete_chat(chat_id: str):
 @app.post("/chats/{chat_id}/messages")
 def send_message(chat_id: str, req: MessageRequest):
     chat = require_chat(chat_id)
+    if not agent.settings.current.configured:
+        raise HTTPException(
+            status_code=409,
+            detail="Connect a model first in Settings > Preferences > Connections.",
+        )
 
     def event_stream():
         for event in agent.chat_stream(chat, req.message):
