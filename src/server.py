@@ -38,11 +38,13 @@ def index():
 @app.post("/chat")
 def chat(req: ChatRequest):
     reply = agent.chat(req.message)
+    word_segments = [s for s in reply["segments"] if s["type"] == "word"]
     logger.info(
-        "chat: %r -> %d clip(s) created: %s",
+        "chat: %r -> %d segment(s), %d clip(s): %s",
         req.message,
-        len(reply["clips"]),
-        reply["clips"],
+        len(reply["segments"]),
+        len(word_segments),
+        word_segments,
     )
     return reply
 

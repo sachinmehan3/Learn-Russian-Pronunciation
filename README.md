@@ -31,19 +31,23 @@ python src/main.py
 ```
 
 This starts a local web server and opens `http://127.0.0.1:8000` in your browser.
-Chat with the teacher agent there. Whenever it pronounces a Russian word or phrase,
-a clickable 🔊 button for it appears below the reply — click it to hear it spoken,
-as many times as you want. Each pronunciation gets its own independent audio clip,
-so multiple pronunciations in the same reply (e.g. an informal and a formal
-greeting) don't overwrite each other.
+Chat with the teacher agent there. The agent is a plain chatbot with a system prompt
+telling it to teach Russian to an English speaker, writing new words/phrases in
+Cyrillic with a transliteration alongside (e.g. "привет (privet)"). It has **no
+tools** — it just replies with normal text.
 
-The backend tracks exactly which clips were created during a turn and returns them
-alongside the reply text (`{"text": ..., "clips": [{"clip_id", "text"}, ...]}`) —
-the model never has to correctly reference a clip_id itself, which was a real
-source of bugs (it would sometimes invent a plausible-looking id instead of using
-the real one). This is deliberately simpler than tying inline word segments to
-clip_ids via structured output; the clips just render as a row of buttons under
-the message instead of being embedded inline in the sentence.
+The backend then does all the audio-linking work itself: it scans the reply for
+Cyrillic runs with a regex, synthesizes each one via Silero, and splits the reply
+into a sequence of segments — plain text and "word" segments (the exact Cyrillic
+substring plus a `clip_id`). The model never has to know clip_ids exist at all,
+which is what makes this reliable: earlier designs asked the model to reference a
+clip_id it got from a tool call, and it would sometimes invent a plausible-looking
+one instead of using the real one. Now there's nothing for it to get wrong — the
+matching is done entirely on our side, deterministically, after the fact.
+
+The frontend renders each "word" segment as a clickable button inline, exactly
+where it occurs in the sentence — click it to hear that exact clip, as many times
+as you want.
 
 Clips stay clickable for the whole session (they live in the `TeacherAgent`'s
 in-memory `ClipStore`, backed by `audio_output/*.wav`). They're wiped at the start
@@ -54,21 +58,18 @@ locally. `v5_5_ru` is used over the older `v4_ru` because it adds auto-stress,
 homograph resolution, and question-intonation support (questions carry distinct
 intonation in Russian, which matters for pronunciation practice).
 
-The agent has no system prompt or fixed curriculum by design — it's a general
-helpful chat agent that happens to have a `create_pronunciation_clip` tool available.
-It also has no cross-run persistence: each run starts a fresh conversation.
-
 ## Project structure
 
 ```
 src/
   tts.py           - Silero TTS wrapper (model loading + plain-text synthesis)
   clips.py         - ClipStore: synthesizes and registers clips by id, for later playback
-  agent.py         - TeacherAgent: OpenAI-compatible chat client + tool-calling loop;
-                     tracks clips created per turn and returns them alongside the reply
+  agent.py         - TeacherAgent: system-prompted OpenAI-compatible chat client (no
+                     tools); regex-detects Cyrillic runs in the reply and splits it
+                     into text/word segments, synthesizing a clip for each word
   server.py        - FastAPI app: POST /chat, GET /audio/{clip_id}, serves static/
-  static/index.html - Chat UI: renders reply text plus a row of clickable 🔊 buttons
-                     for any clips created that turn
+  static/index.html - Chat UI: renders text/word segments inline, word segments are
+                     clickable buttons that play their clip
   main.py          - Entry point: launches the server and opens the browser
 ```
 
