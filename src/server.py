@@ -3,11 +3,12 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import openai
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from agent import CYRILLIC_RUN, TeacherAgent, describe_api_error
 from settings import SettingsUpdate, normalize_base_url
@@ -171,6 +172,25 @@ def create_clip(req: ClipRequest):
     clip_id = agent.clips.create(chat.id, req.text, req.voice, slow=req.slow)
     logger.info("clip %r (voice=%s, slow=%s) -> %s", req.text, req.voice, req.slow, clip_id)
     return {"clip_id": clip_id}
+
+
+MAX_AUDIO_BYTES = 8 * 1024 * 1024
+
+
+@app.post("/transcribe")
+async def transcribe(request: Request):
+    audio = await request.body()
+    if not audio:
+        raise HTTPException(status_code=400, detail="No audio received.")
+    if len(audio) > MAX_AUDIO_BYTES:
+        raise HTTPException(status_code=413, detail="Recording is too large.")
+    try:
+        # Transcription blocks for a second or more (and downloads the model on
+        # first use), so it can't run on the event loop.
+        text = await run_in_threadpool(agent.stt.transcribe_wav, audio)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"text": text}
 
 
 @app.get("/audio/{clip_id}")

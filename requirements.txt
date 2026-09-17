@@ -7,3 +7,6 @@ openai
 markdown-it-py
 fastapi
 uvicorn
+
+# Speech recognition needs gigaam, which is NOT listed here: its pins would
+# downgrade torch. See the README for the --no-deps install.

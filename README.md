@@ -18,6 +18,12 @@ venv\Scripts\Activate.ps1
 source venv/Scripts/activate
 
 pip install -r requirements.txt
+
+# Speech recognition (optional, for the "Say it" button). Installed with
+# --no-deps on purpose: the package pins torch<=2.5.1 and would otherwise
+# downgrade the torch that Silero TTS runs on.
+pip install --no-deps gigaam
+pip install tqdm hydra-core sentencepiece
 ```
 
 Then start the app and set up the model connection in the UI
@@ -57,6 +63,9 @@ clip_ids exist, so it can't get them wrong.
   temperature, top-p, max output tokens, reasoning effort and the system prompt —
   leave a number empty to use the model's own default. Saved settings apply from
   your next message.
+- **Say it** in the word panel records you saying the word and shows what the
+  recognizer heard, marking it green when it matches. The mic button beside the
+  chat box does the same for a whole phrase and drops the text into the box.
 - **Settings → Preferences → Voice** sets the default voice for *new* chats. The
   current chat keeps the voice it started with. This one preference is saved in the
   browser's localStorage.
@@ -87,6 +96,7 @@ src/
   tts.py            - Silero TTS wrapper (normal or slow synthesis, any speaker,
                       stress-mark conversion)
   store.py          - ChatStore: chats persisted as JSONL files
+  stt.py            - RussianSTT: GigaAM speech recognition, loaded on first use
   settings.py       - SettingsStore: connection + model settings in settings.json
   clips.py          - ClipStore: cached clips keyed by (text, voice, slow)
   agent.py          - TeacherAgent: per-chat history + voice, streaming replies,
@@ -112,6 +122,7 @@ src/
 | POST | `/chats/{id}/messages` `{message}` | Stream a reply (SSE: `delta`, `text_done`, `html`) |
 | POST | `/clips` `{text, voice, slow}` | Get or create a clip variant (Cyrillic text only) |
 | GET  | `/audio/{clip_id}` | The clip's wav |
+| POST | `/transcribe` (WAV body) | Transcribe a recording |
 
 ## Available speakers
 
@@ -132,3 +143,25 @@ your saved key to another host.
 Model parameters are only sent when set. An empty temperature, top-p or max-tokens
 field means the parameter is left out of the request entirely, which matters because
 reasoning models reject some of them.
+
+## Speech recognition
+
+The "Say it" button uses [GigaAM](https://github.com/salute-developers/GigaAM) v2 CTC
+from SberDevices. Silero has no open Russian STT model — theirs covers en/de/es/ua
+only — and GigaAM is trained on 700k hours of Russian specifically, which puts it well
+ahead of Whisper here.
+
+Two things the integration works around, both in `stt.py`:
+
+- The package predates PyTorch 2.6's `weights_only=True` default for `torch.load`, so
+  the omegaconf config classes in its checkpoint are explicitly allowlisted rather
+  than turning the check off.
+- It decodes audio by shelling out to `ffmpeg`. `load_audio` is replaced with a
+  soundfile + torchaudio equivalent, so there's no external binary to install.
+
+The model (~444MB) downloads on first use into `~/.cache/gigaam` and loads in about
+two seconds; a single word transcribes in roughly 0.2s on CPU.
+
+Recording happens in the browser, which produces webm/opus. Rather than decode that
+server-side (ffmpeg again), the page converts it to 16kHz mono WAV with the Web Audio
+API before uploading, so the server only ever handles plain WAV.

@@ -6,6 +6,7 @@ from markdown_it import MarkdownIt
 
 from clips import ClipStore
 from settings import Settings, SettingsStore
+from stt import RussianSTT
 from store import Chat, ChatStore
 from tts import DEFAULT_SPEAKER, RussianTTS
 
@@ -31,6 +32,7 @@ class TeacherAgent:
     def __init__(self):
         self.settings = SettingsStore()
         self.tts = RussianTTS()
+        self.stt = RussianSTT()
         self.clips = ClipStore(self.tts)
         self.chats = ChatStore()
         self._client: openai.OpenAI | None = None
