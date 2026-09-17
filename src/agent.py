@@ -39,7 +39,9 @@ TOOLS = [
                     }
                 },
                 "required": ["text"],
+                "additionalProperties": False,
             },
+            "strict": True,
         },
     }
 ]
