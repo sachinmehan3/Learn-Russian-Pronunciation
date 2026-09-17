@@ -2,47 +2,144 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Russian Pronunciation Tutor</title>
 <style>
   :root {
     color-scheme: light dark;
     --bg: #ffffff;
     --fg: #1a1a1a;
+    --muted: #6b7280;
     --bubble-bg: #f0f2f5;
+    --side-bg: #f7f8fa;
+    --panel-bg: #ffffff;
+    --hover: rgba(0, 0, 0, 0.06);
     --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.12);
     --border: #d8dde3;
+    --danger: #d23c3c;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #16181c;
       --fg: #e8eaed;
+      --muted: #9aa0a6;
       --bubble-bg: #24272c;
+      --side-bg: #1c1f24;
+      --panel-bg: #202328;
+      --hover: rgba(255, 255, 255, 0.07);
       --accent: #5b9dff;
+      --accent-soft: rgba(91, 157, 255, 0.16);
       --border: #3a3f46;
+      --danger: #ef6b6b;
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     }
   }
+  [hidden] { display: none !important; }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--fg);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    display: flex;
-    justify-content: center;
   }
-  #app {
+  button, select, input { font: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  #layout { display: flex; height: 100vh; }
+
+  /* Left sidebar */
+  #sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px;
+    background: var(--side-bg);
+    border-right: 1px solid var(--border);
+    transition: width 0.15s ease;
+  }
+  #layout.sidebar-collapsed #sidebar { width: 58px; }
+  #layout.sidebar-collapsed .label { display: none; }
+  .side-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     width: 100%;
-    max-width: 720px;
-    height: 100vh;
+    padding: 8px 9px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--fg);
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .side-item:hover { background: var(--hover); }
+  .side-item svg { flex-shrink: 0; }
+  .spacer { flex: 1; }
+  .settings-wrap { position: relative; }
+  .dropup {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    min-width: 180px;
+    padding: 4px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    z-index: 20;
+  }
+  .menu-item {
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--fg);
+    text-align: left;
+    cursor: pointer;
+  }
+  .menu-item:hover { background: var(--hover); }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--hover); }
+
+  /* Chat column */
+  #chat { flex: 1; min-width: 0; }
+  .chat-inner {
+    height: 100%;
+    max-width: 760px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
     padding: 16px;
   }
-  h1 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0 0 12px;
+  .chat-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
   }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0; }
+  #chat-voice { font-size: 0.85rem; color: var(--muted); }
   #log {
     flex: 1;
     overflow-y: auto;
@@ -51,46 +148,86 @@
     gap: 10px;
     padding-bottom: 12px;
   }
+  .empty {
+    margin: auto;
+    color: var(--muted);
+    text-align: center;
+  }
   .msg {
     max-width: 85%;
     padding: 10px 14px;
     border-radius: 14px;
-    line-height: 1.5;
-    word-wrap: break-word;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
-  .msg.user {
-    align-self: flex-end;
-    background: var(--accent);
-    color: white;
-  }
-  .msg.teacher {
-    align-self: flex-start;
-    background: var(--bubble-bg);
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; }
+  .msg.teacher { align-self: flex-start; background: var(--bubble-bg); }
+  .msg code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 0.9em;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: var(--hover);
   }
   .word-btn {
     display: inline;
-    font: inherit;
-    color: var(--accent);
-    background: none;
+    padding: 0 2px;
     border: none;
     border-bottom: 2px dotted var(--accent);
-    padding: 0 1px;
+    border-radius: 3px;
+    background: none;
+    color: var(--accent);
+    font-weight: inherit;
     cursor: pointer;
   }
-  .word-btn:hover {
-    opacity: 0.75;
+  .word-btn:hover { background: var(--accent-soft); }
+  .word-btn.active { background: var(--accent-soft); border-bottom-style: solid; }
+
+  form { display: flex; gap: 8px; }
+  #input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--fg);
   }
-  .word-btn.failed {
-    color: #e04b4b;
-    border-bottom-color: #e04b4b;
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
   }
+  .btn:hover:not(:disabled) { background: var(--hover); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(1.08); }
+  .btn:disabled, #input:disabled { opacity: 0.5; cursor: default; }
+
+  select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--fg);
+  }
+
   .spinner-label {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     margin-left: 6px;
     font-size: 0.85rem;
-    opacity: 0.7;
+    color: var(--muted);
+    white-space: nowrap;
   }
   .spinner-icon {
     width: 12px;
@@ -100,92 +237,291 @@
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  form {
-    display: flex;
-    gap: 8px;
-  }
-  #debug {
-    margin-top: 10px;
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
-  }
-  #debug summary {
-    cursor: pointer;
-    font-size: 0.85rem;
-    color: var(--fg);
-    opacity: 0.7;
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #debug { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+  #debug summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
   #debug-log {
-    margin: 8px 0 0;
-    max-height: 200px;
+    margin-top: 8px;
+    max-height: 180px;
     overflow-y: auto;
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--bubble-bg);
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
     font-size: 0.78rem;
-    background: var(--bubble-bg);
-    border-radius: 8px;
-    padding: 8px;
     white-space: pre-wrap;
     word-break: break-all;
   }
-  #debug-log .err { color: #e04b4b; }
+  #debug-log .err { color: var(--danger); }
   #debug-log .ok { color: #3aa76d; }
-  input[type="text"] {
-    flex: 1;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--fg);
-    font-size: 1rem;
+
+  /* Right word panel */
+  #word-panel {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--side-bg);
+    border-left: 1px solid var(--border);
   }
-  button[type="submit"] {
-    padding: 10px 16px;
-    border-radius: 10px;
-    border: none;
-    background: var(--accent);
-    color: white;
-    font-size: 1rem;
-    cursor: pointer;
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  #panel-word {
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+  .panel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #panel-status { min-height: 1.4em; font-size: 0.85rem; color: var(--muted); }
+  #panel-status.err { color: var(--danger); }
+  #panel-status .spinner-label { margin-left: 0; }
+
+  /* Preferences modal */
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.45);
+  }
+  .modal-card {
+    display: flex;
+    width: min(640px, 100%);
+    min-height: 320px;
+    overflow: hidden;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .modal-nav {
+    width: 170px;
+    flex-shrink: 0;
+    padding: 14px 10px;
+    background: var(--side-bg);
+    border-right: 1px solid var(--border);
+  }
+  .modal-nav h2 { margin: 4px 8px 12px; font-size: 1rem; }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); }
+  .modal-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px 18px 18px; }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h3 { margin: 0; font-size: 1rem; }
+  .hint { margin: 0; font-size: 0.85rem; color: var(--muted); }
+
+  @media (max-width: 860px) {
+    #word-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 30;
+      width: min(300px, 88vw);
+      box-shadow: var(--shadow);
+    }
+  }
+  @media (max-width: 520px) {
+    .modal-card { flex-direction: column; }
+    .modal-nav { width: auto; border-right: none; border-bottom: 1px solid var(--border); }
   }
 </style>
 </head>
 <body>
-<div id="app">
-  <h1>Russian Pronunciation Tutor</h1>
-  <div id="log"></div>
-  <form id="form">
-    <input id="input" type="text" placeholder="Ask anything..." autocomplete="off" autofocus>
-    <button type="submit">Send</button>
-  </form>
-  <details id="debug">
-    <summary>Debug log</summary>
-    <div id="debug-log"></div>
-  </details>
+<div id="layout">
+  <aside id="sidebar" aria-label="Sidebar">
+    <button id="toggle-sidebar" class="side-item" aria-expanded="true" aria-controls="sidebar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      <span class="label">Collapse</span>
+    </button>
+    <button id="new-chat" class="side-item" title="New chat">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <span class="label">New chat</span>
+    </button>
+    <div class="spacer"></div>
+    <div class="settings-wrap">
+      <div id="settings-menu" class="dropup" role="menu" hidden>
+        <button id="open-prefs" class="menu-item" role="menuitem">Preferences</button>
+      </div>
+      <button id="settings-btn" class="side-item" title="Settings" aria-haspopup="menu" aria-expanded="false" aria-controls="settings-menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        <span class="label">Settings</span>
+      </button>
+    </div>
+  </aside>
+
+  <main id="chat">
+    <div class="chat-inner">
+      <div class="chat-head">
+        <h1>Russian Pronunciation Tutor</h1>
+        <span id="chat-voice"></span>
+      </div>
+      <div id="log"></div>
+      <form id="form">
+        <input id="input" type="text" placeholder="Ask anything..." autocomplete="off" autofocus>
+        <button id="send" class="btn primary" type="submit">Send</button>
+      </form>
+      <details id="debug">
+        <summary>Debug log</summary>
+        <div id="debug-log"></div>
+      </details>
+    </div>
+  </main>
+
+  <aside id="word-panel" aria-label="Pronunciation" hidden>
+    <div class="panel-head">
+      <span>Pronunciation</span>
+      <button id="close-panel" class="icon-btn" aria-label="Close pronunciation panel">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div id="panel-word" lang="ru"></div>
+    <label class="field">Voice
+      <select id="panel-voice"></select>
+    </label>
+    <div class="panel-actions">
+      <button id="play-normal" class="btn primary" type="button">▶ Play</button>
+      <button id="play-slow" class="btn" type="button">🐢 Slower</button>
+    </div>
+    <div id="panel-status" role="status"></div>
+  </aside>
+</div>
+
+<div id="prefs" class="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="prefs-title">
+    <nav class="modal-nav">
+      <h2 id="prefs-title">Preferences</h2>
+      <button class="menu-item nav-item active" type="button">Voice</button>
+    </nav>
+    <section class="modal-body">
+      <div class="modal-head">
+        <h3>Voice</h3>
+        <button id="close-prefs" class="icon-btn" aria-label="Close preferences">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <label class="field" for="default-voice">Default voice</label>
+      <select id="default-voice"></select>
+      <p class="hint">Used when you start a new chat. The current chat keeps the voice it started with.</p>
+    </section>
+  </div>
 </div>
 
 <script>
-const log = document.getElementById("log");
-const form = document.getElementById("form");
-const input = document.getElementById("input");
-const debugLog = document.getElementById("debug-log");
+const $ = (id) => document.getElementById(id);
+const layout = $("layout");
+const log = $("log");
+const form = $("form");
+const input = $("input");
+const sendBtn = $("send");
+const debugLog = $("debug-log");
+const chatVoiceEl = $("chat-voice");
+const settingsBtn = $("settings-btn");
+const settingsMenu = $("settings-menu");
+const prefs = $("prefs");
+const defaultVoiceSelect = $("default-voice");
+const wordPanel = $("word-panel");
+const panelWord = $("panel-word");
+const panelVoice = $("panel-voice");
+const panelStatus = $("panel-status");
+const playNormalBtn = $("play-normal");
+const playSlowBtn = $("play-slow");
+
+const state = {
+  voices: [],
+  defaultVoice: null,
+  chat: null,       // { chat_id, voice }
+  panel: null,      // { text, voice }
+  streaming: false,
+};
+
+// ---------- utilities ----------
 
 function debug(msg, level = "info") {
-  const time = new Date().toLocaleTimeString();
   const line = document.createElement("div");
   if (level !== "info") line.className = level;
-  line.textContent = `[${time}] ${msg}`;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
   debugLog.appendChild(line);
   debugLog.scrollTop = debugLog.scrollHeight;
   (level === "err" ? console.error : console.log)(msg);
 }
-
 window.addEventListener("error", (e) => debug("Uncaught error: " + e.message, "err"));
 window.addEventListener("unhandledrejection", (e) => debug("Unhandled rejection: " + e.reason, "err"));
 
+async function postJSON(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  debug(`POST ${url} -> ${res.status}`, res.ok ? "ok" : "err");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res;
+}
+
+function voiceLabel(v) {
+  return v.charAt(0).toUpperCase() + v.slice(1);
+}
+
+function fillVoiceSelect(select, selected) {
+  select.replaceChildren(...state.voices.map((v) => new Option(voiceLabel(v), v, false, v === selected)));
+}
+
+function makeSpinner(label) {
+  const wrap = document.createElement("span");
+  wrap.className = "spinner-label";
+  const icon = document.createElement("span");
+  icon.className = "spinner-icon";
+  const text = document.createElement("span");
+  text.textContent = label;
+  wrap.append(icon, text);
+  return { el: wrap, setLabel: (l) => { text.textContent = l; } };
+}
+
+function loadDefaultVoice(fallback) {
+  try {
+    const saved = localStorage.getItem("defaultVoice");
+    if (saved && state.voices.includes(saved)) return saved;
+  } catch {}
+  return fallback;
+}
+
+function saveDefaultVoice(voice) {
+  try { localStorage.setItem("defaultVoice", voice); } catch {}
+}
+
+async function playClip(clipId) {
+  const res = await fetch("/audio/" + clipId);
+  debug(`GET /audio/${clipId} -> ${res.status}`, res.ok ? "ok" : "err");
+  if (!res.ok) throw new Error(`audio HTTP ${res.status}`);
+  const url = URL.createObjectURL(await res.blob());
+  const audio = new Audio(url);
+  audio.addEventListener("ended", () => URL.revokeObjectURL(url));
+  await audio.play();
+}
+
+// ---------- chats ----------
+
+function showEmptyState() {
+  const empty = document.createElement("div");
+  empty.className = "empty";
+  empty.textContent = "Say hi to start learning. Click any Russian word to hear it.";
+  log.replaceChildren(empty);
+}
+
 function addMessage(role, node) {
+  log.querySelector(".empty")?.remove();
   const div = document.createElement("div");
   div.className = "msg " + role;
   div.appendChild(node);
@@ -194,56 +530,35 @@ function addMessage(role, node) {
   return div;
 }
 
-async function playClip(clipId, btn) {
-  debug(`Clicked word -> clip_id "${clipId}"`);
-  try {
-    const res = await fetch("/audio/" + clipId);
-    debug(`GET /audio/${clipId} -> ${res.status} ${res.statusText}`, res.ok ? "ok" : "err");
-    if (!res.ok) {
-      btn.classList.add("failed");
-      btn.title = `Playback failed: HTTP ${res.status} (${res.statusText})`;
-      return;
-    }
-    const blob = await res.blob();
-    debug(`Received ${blob.size} bytes, type=${blob.type}`);
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.addEventListener("ended", () => URL.revokeObjectURL(url));
-    await audio.play();
-    debug(`Playing clip_id "${clipId}"`, "ok");
-    btn.classList.remove("failed");
-    btn.title = "";
-  } catch (err) {
-    debug(`Error playing clip_id "${clipId}": ${err}`, "err");
-    btn.classList.add("failed");
-    btn.title = "Playback failed: " + err;
-  }
+async function newChat() {
+  if (state.streaming) return;
+  const res = await postJSON("/chats", { voice: state.defaultVoice });
+  state.chat = await res.json();
+  debug(`New chat ${state.chat.chat_id} (voice ${state.chat.voice})`);
+  chatVoiceEl.textContent = "Voice: " + voiceLabel(state.chat.voice);
+  closePanel();
+  showEmptyState();
+  input.focus();
 }
 
 function renderReply(bubble, html) {
   bubble.innerHTML = html;
   bubble.querySelectorAll(".word-btn").forEach((btn) => {
-    debug(`Rendering word "${btn.textContent}" -> clip_id "${btn.dataset.clipId}"`);
-    btn.addEventListener("click", () => playClip(btn.dataset.clipId, btn));
+    btn.addEventListener("click", () => openPanel(btn));
   });
 }
 
-function makeSpinner(label) {
-  const span = document.createElement("span");
-  span.className = "spinner-label";
-  const icon = document.createElement("span");
-  icon.className = "spinner-icon";
-  const text = document.createElement("span");
-  text.textContent = label;
-  span.appendChild(icon);
-  span.appendChild(text);
-  return { el: span, setLabel: (l) => { text.textContent = l; } };
+function setStreaming(on) {
+  state.streaming = on;
+  input.disabled = on;
+  sendBtn.disabled = on;
+  if (!on) input.focus();
 }
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = input.value.trim();
-  if (!text) return;
+  if (!text || state.streaming || !state.chat) return;
   input.value = "";
   addMessage("user", document.createTextNode(text));
 
@@ -252,16 +567,9 @@ form.addEventListener("submit", async (e) => {
   const spinner = makeSpinner("Thinking...");
   bubble.appendChild(spinner.el);
 
-  debug(`POST /chat (stream) "${text}"`);
+  setStreaming(true);
   try {
-    const res = await fetch("/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
-    });
-    debug(`POST /chat -> ${res.status} ${res.statusText}`, res.ok ? "ok" : "err");
-    if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
-
+    const res = await postJSON(`/chats/${state.chat.chat_id}/messages`, { message: text });
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -275,23 +583,144 @@ form.addEventListener("submit", async (e) => {
       for (const part of parts) {
         if (!part.startsWith("data: ")) continue;
         const event = JSON.parse(part.slice(6));
-
         if (event.type === "delta") {
           textNode.textContent += event.content;
+          log.scrollTop = log.scrollHeight;
         } else if (event.type === "text_done") {
           spinner.setLabel("Creating pronunciation audio...");
-          debug("Text streaming complete, synthesizing clips...");
         } else if (event.type === "html") {
-          debug("Response html: " + event.html);
           renderReply(bubble, event.html);
+          log.scrollTop = log.scrollHeight;
         }
       }
     }
   } catch (err) {
-    debug("Error handling /chat: " + err, "err");
-    bubble.textContent = "Error: " + err;
+    debug("Error handling message: " + err, "err");
+    bubble.textContent = "Something went wrong: " + err.message;
+  } finally {
+    setStreaming(false);
   }
 });
+
+// ---------- word panel ----------
+
+function setPanelStatus(content, isError = false) {
+  panelStatus.classList.toggle("err", isError);
+  panelStatus.replaceChildren(...(content ? [content] : []));
+}
+
+function setPanelBusy(busy) {
+  playNormalBtn.disabled = busy;
+  playSlowBtn.disabled = busy;
+  panelVoice.disabled = busy;
+}
+
+async function playVariant({ clipId, slow }) {
+  const request = state.panel;
+  setPanelBusy(true);
+  setPanelStatus(makeSpinner(slow ? "Creating slower version..." : "Creating audio...").el);
+  try {
+    if (!clipId) {
+      const res = await postJSON("/clips", { text: request.text, voice: request.voice, slow });
+      clipId = (await res.json()).clip_id;
+    }
+    if (state.panel !== request) return;
+    setPanelStatus(document.createTextNode(`${slow ? "Slower" : "Normal speed"} · ${voiceLabel(request.voice)}`));
+    await playClip(clipId);
+  } catch (err) {
+    debug("Playback error: " + err, "err");
+    if (state.panel === request) setPanelStatus(document.createTextNode("Couldn't play audio: " + err.message), true);
+  } finally {
+    if (state.panel === request) setPanelBusy(false);
+  }
+}
+
+function openPanel(btn) {
+  document.querySelectorAll(".word-btn.active").forEach((b) => b.classList.remove("active"));
+  btn.classList.add("active");
+  state.panel = { text: btn.textContent, voice: btn.dataset.voice };
+  panelWord.textContent = state.panel.text;
+  fillVoiceSelect(panelVoice, state.panel.voice);
+  wordPanel.hidden = false;
+  debug(`Opened "${state.panel.text}" (clip ${btn.dataset.clipId})`);
+  playVariant({ clipId: btn.dataset.clipId, slow: false });
+}
+
+function closePanel() {
+  state.panel = null;
+  wordPanel.hidden = true;
+  document.querySelectorAll(".word-btn.active").forEach((b) => b.classList.remove("active"));
+}
+
+playNormalBtn.addEventListener("click", () => playVariant({ slow: false }));
+playSlowBtn.addEventListener("click", () => playVariant({ slow: true }));
+panelVoice.addEventListener("change", () => {
+  state.panel = { ...state.panel, voice: panelVoice.value };
+  playVariant({ slow: false });
+});
+$("close-panel").addEventListener("click", closePanel);
+
+// ---------- sidebar, settings, preferences ----------
+
+$("toggle-sidebar").addEventListener("click", (e) => {
+  const collapsed = layout.classList.toggle("sidebar-collapsed");
+  e.currentTarget.setAttribute("aria-expanded", String(!collapsed));
+  e.currentTarget.querySelector(".label").textContent = collapsed ? "Expand" : "Collapse";
+});
+
+$("new-chat").addEventListener("click", () => {
+  newChat().catch((err) => debug("Couldn't start new chat: " + err, "err"));
+});
+
+function setSettingsMenu(open) {
+  settingsMenu.hidden = !open;
+  settingsBtn.setAttribute("aria-expanded", String(open));
+}
+settingsBtn.addEventListener("click", () => setSettingsMenu(settingsMenu.hidden));
+document.addEventListener("click", (e) => {
+  if (!settingsMenu.hidden && !e.target.closest(".settings-wrap")) setSettingsMenu(false);
+});
+
+function openPrefs() {
+  setSettingsMenu(false);
+  fillVoiceSelect(defaultVoiceSelect, state.defaultVoice);
+  prefs.hidden = false;
+  defaultVoiceSelect.focus();
+}
+function closePrefs() {
+  prefs.hidden = true;
+  settingsBtn.focus();
+}
+$("open-prefs").addEventListener("click", openPrefs);
+$("close-prefs").addEventListener("click", closePrefs);
+prefs.addEventListener("click", (e) => { if (e.target === prefs) closePrefs(); });
+defaultVoiceSelect.addEventListener("change", () => {
+  state.defaultVoice = defaultVoiceSelect.value;
+  saveDefaultVoice(state.defaultVoice);
+  debug(`Default voice set to ${state.defaultVoice} (applies to new chats)`);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!prefs.hidden) closePrefs();
+  else if (!settingsMenu.hidden) setSettingsMenu(false);
+  else if (!wordPanel.hidden) closePanel();
+});
+
+// ---------- startup ----------
+
+(async () => {
+  try {
+    const res = await fetch("/voices");
+    const data = await res.json();
+    state.voices = data.voices;
+    state.defaultVoice = loadDefaultVoice(data.default);
+    await newChat();
+  } catch (err) {
+    debug("Startup failed: " + err, "err");
+    addMessage("teacher", document.createTextNode("Couldn't connect to the server: " + err.message));
+  }
+})();
 </script>
 </body>
 </html>

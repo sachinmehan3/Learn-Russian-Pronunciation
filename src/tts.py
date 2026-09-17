@@ -1,7 +1,10 @@
+import html
 import pathlib
 
 import soundfile as sf
 import torch
+
+DEFAULT_SPEAKER = "xenia"
 
 
 class RussianTTS:
@@ -12,27 +15,33 @@ class RussianTTS:
         self.model, _ = torch.hub.load(
             repo_or_dir="snakers4/silero-models",
             model="silero_tts",
-            language="ru",  
+            language="ru",
             speaker=model_id,
         )
         self.model.to(self.device)
 
+    @property
+    def speakers(self) -> list[str]:
+        return list(self.model.speakers)
+
     def synthesize(
         self,
         text: str,
-        speaker: str = "xenia",
+        output_path: str,
+        speaker: str = DEFAULT_SPEAKER,
+        slow: bool = False,
         sample_rate: int = 48000,
-        output_path: str = "audio_output/output.wav",
     ) -> str:
-        audio = self.model.apply_tts(
-            text=text,
-            speaker=speaker,
-            sample_rate=sample_rate,
-        )
-        return self._write(audio, sample_rate, output_path)
+        if slow:
+            ssml = f'<speak><prosody rate="x-slow">{html.escape(text)}</prosody></speak>'
+            audio = self.model.apply_tts(
+                ssml_text=ssml, speaker=speaker, sample_rate=sample_rate
+            )
+        else:
+            audio = self.model.apply_tts(
+                text=text, speaker=speaker, sample_rate=sample_rate
+            )
 
-    @staticmethod
-    def _write(audio, sample_rate: int, output_path: str) -> str:
         out_path = pathlib.Path(output_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         sf.write(out_path, audio.numpy(), sample_rate)

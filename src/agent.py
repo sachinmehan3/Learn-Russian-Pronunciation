@@ -2,12 +2,13 @@ import html
 import logging
 import os
 import re
+import uuid
 
 from dotenv import load_dotenv
 from openai import OpenAI
 
 from clips import ClipStore
-from tts import RussianTTS
+from tts import DEFAULT_SPEAKER, RussianTTS
 
 load_dotenv()
 
@@ -29,6 +30,12 @@ MARKDOWN_BOLD = re.compile(r"\*\*(.+?)\*\*")
 MARKDOWN_ITALIC = re.compile(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)")
 
 
+class Chat:
+    def __init__(self, voice: str):
+        self.voice = voice
+        self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+
 class TeacherAgent:
     def __init__(self):
         self.client = OpenAI(
@@ -37,20 +44,36 @@ class TeacherAgent:
         )
         self.model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
         self.reasoning_effort = os.environ.get("OPENAI_REASONING_EFFORT", "high") or None
-        self.clips = ClipStore(RussianTTS())
-        self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
+        self.tts = RussianTTS()
+        self.clips = ClipStore(self.tts)
+        self.chats: dict[str, Chat] = {}
 
-    def chat_stream(self, user_message: str):
+    @property
+    def voices(self) -> list[str]:
+        return self.tts.speakers
+
+    @property
+    def default_voice(self) -> str:
+        return DEFAULT_SPEAKER
+
+    def new_chat(self, voice: str) -> str:
+        chat_id = uuid.uuid4().hex
+        self.chats[chat_id] = Chat(voice)
+        logger.info("new chat %s (voice=%s)", chat_id, voice)
+        return chat_id
+
+    def chat_stream(self, chat_id: str, user_message: str):
         """Yields dict events as the reply is generated:
         {"type": "delta", "content": str}   - a chunk of streamed reply text
         {"type": "text_done"}               - reply text finished, synthesis starting
         {"type": "html", "html": str}       - final rendered reply, markdown converted
                                                to HTML with clickable Cyrillic words
         """
-        logger.info("user: %s", user_message)
-        self.history.append({"role": "user", "content": user_message})
+        chat = self.chats[chat_id]
+        logger.info("[%s] user: %s", chat_id, user_message)
+        chat.history.append({"role": "user", "content": user_message})
 
-        kwargs = dict(model=self.model, messages=self.history, stream=True)
+        kwargs = dict(model=self.model, messages=chat.history, stream=True)
         if self.reasoning_effort:
             kwargs["reasoning_effort"] = self.reasoning_effort
         stream = self.client.chat.completions.create(**kwargs)
@@ -63,24 +86,23 @@ class TeacherAgent:
                 yield {"type": "delta", "content": delta}
 
         text = "".join(chunks)
-        logger.info("assistant: %s", text)
-        self.history.append({"role": "assistant", "content": text})
+        logger.info("[%s] assistant: %s", chat_id, text)
+        chat.history.append({"role": "assistant", "content": text})
         yield {"type": "text_done"}
 
-        yield {"type": "html", "html": self._render_html(text)}
+        yield {"type": "html", "html": self._render_html(text, chat.voice)}
 
-    def _render_html(self, text: str) -> str:
+    def _render_html(self, text: str, voice: str) -> str:
         rendered = html.escape(text)
         rendered = MARKDOWN_CODE.sub(r"<code>\1</code>", rendered)
         rendered = MARKDOWN_BOLD.sub(r"<strong>\1</strong>", rendered)
         rendered = MARKDOWN_ITALIC.sub(r"<em>\1</em>", rendered)
-        return CYRILLIC_RUN.sub(self._make_word_button, rendered)
+        return CYRILLIC_RUN.sub(lambda m: self._word_button(m.group(), voice), rendered)
 
-    def _make_word_button(self, match: re.Match) -> str:
-        cyrillic_text = match.group()
-        clip_id = self.clips.create(cyrillic_text)
-        logger.info("clip created for %r -> %s", cyrillic_text, clip_id)
+    def _word_button(self, word: str, voice: str) -> str:
+        clip_id = self.clips.create(word, voice)
+        logger.info("clip created for %r (voice=%s) -> %s", word, voice, clip_id)
         return (
             f'<button type="button" class="word-btn" '
-            f'data-clip-id="{clip_id}">{cyrillic_text}</button>'
+            f'data-clip-id="{clip_id}" data-voice="{voice}">{word}</button>'
         )

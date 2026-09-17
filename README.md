@@ -36,22 +36,26 @@ telling it to teach Russian to an English speaker, writing new words/phrases in
 Cyrillic with a transliteration alongside (e.g. "привет (privet)"). It has **no
 tools** — it just replies with normal text.
 
-The backend then does all the audio-linking work itself: it scans the reply for
-Cyrillic runs with a regex, synthesizes each one via Silero, and splits the reply
-into a sequence of segments — plain text and "word" segments (the exact Cyrillic
-substring plus a `clip_id`). The model never has to know clip_ids exist at all,
-which is what makes this reliable: earlier designs asked the model to reference a
-clip_id it got from a tool call, and it would sometimes invent a plausible-looking
-one instead of using the real one. Now there's nothing for it to get wrong — the
-matching is done entirely on our side, deterministically, after the fact.
+The backend then does all the audio-linking work itself: once the reply finishes
+streaming, it converts the Markdown to HTML and wraps every run of Cyrillic text in
+a clickable button with its own synthesized clip. The model never has to know
+clip_ids exist, so it can't get them wrong.
 
-The frontend renders each "word" segment as a clickable button inline, exactly
-where it occurs in the sentence — click it to hear that exact clip, as many times
-as you want.
+### In the UI
 
-Clips stay clickable for the whole session (they live in the `TeacherAgent`'s
-in-memory `ClipStore`, backed by `audio_output/*.wav`). They're wiped at the start
-of the next run, not persisted across restarts.
+- **Click a Russian word** to open the pronunciation panel on the right. It plays
+  the word, and lets you:
+  - **Slower** — re-synthesizes the word with SSML `<prosody rate="x-slow">`.
+  - **Voice** — re-synthesizes it in another voice.
+
+  Every variant is cached by (text, voice, speed), so replaying is instant.
+- **Sidebar (left, collapsible)** — *New chat*, plus *Settings → Preferences*.
+- **Preferences → Voice** sets the default voice for *new* chats. The current chat
+  keeps the voice it started with. The preference is saved in the browser's
+  localStorage.
+
+Chats and clips live in memory for the life of the server process; there's no chat
+history across restarts, and `audio_output/` is wiped on startup.
 
 The first run downloads the Silero `v5_5_ru` model via `torch.hub` and caches it
 locally. `v5_5_ru` is used over the older `v4_ru` because it adds auto-stress,
@@ -62,16 +66,24 @@ intonation in Russian, which matters for pronunciation practice).
 
 ```
 src/
-  tts.py           - Silero TTS wrapper (model loading + plain-text synthesis)
-  clips.py         - ClipStore: synthesizes and registers clips by id, for later playback
-  agent.py         - TeacherAgent: system-prompted OpenAI-compatible chat client (no
-                     tools); regex-detects Cyrillic runs in the reply and splits it
-                     into text/word segments, synthesizing a clip for each word
-  server.py        - FastAPI app: POST /chat, GET /audio/{clip_id}, serves static/
-  static/index.html - Chat UI: renders text/word segments inline, word segments are
-                     clickable buttons that play their clip
-  main.py          - Entry point: launches the server and opens the browser
+  tts.py            - Silero TTS wrapper (normal or slow synthesis, any speaker)
+  clips.py          - ClipStore: cached clips keyed by (text, voice, slow)
+  agent.py          - TeacherAgent: per-chat history + voice, streaming replies,
+                      Markdown -> HTML with clickable Cyrillic words
+  server.py         - FastAPI app (see API below)
+  static/index.html - Chat UI: sidebar, chat, pronunciation panel, preferences
+  main.py           - Entry point: launches the server and opens the browser
 ```
+
+### API
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET  | `/voices` | Available voices and the server default |
+| POST | `/chats` `{voice}` | Start a chat with a fixed voice |
+| POST | `/chats/{id}/messages` `{message}` | Stream a reply (SSE: `delta`, `text_done`, `html`) |
+| POST | `/clips` `{text, voice, slow}` | Get or create a clip variant (Cyrillic text only) |
+| GET  | `/audio/{clip_id}` | The clip's wav |
 
 ## Available speakers
 
