@@ -30,10 +30,16 @@ cp .env.example .env
 python src/main.py
 ```
 
-This starts a chat with the teacher agent. The agent decides on its own when to
-speak Russian out loud — it has a `speak_russian` tool backed by the Silero TTS
-wrapper, and calls it whenever it wants you to hear pronunciation. Audio plays
-automatically through your speakers (via the stdlib `winsound` module, Windows-only).
+This starts a local web server and opens `http://127.0.0.1:8000` in your browser.
+Chat with the teacher agent there. Whenever it introduces a Russian word or phrase,
+that word appears as a clickable button in the reply — click it to hear it spoken,
+as many times as you want. Each word gets its own independent audio clip, so
+multiple pronunciations in the same reply (e.g. an informal and a formal greeting)
+don't overwrite each other.
+
+Clips stay clickable for the whole session (they live in the `TeacherAgent`'s
+in-memory `ClipStore`, backed by `audio_output/*.wav`). They're wiped at the start
+of the next run, not persisted across restarts.
 
 The first run downloads the Silero `v5_5_ru` model via `torch.hub` and caches it
 locally. `v5_5_ru` is used over the older `v4_ru` because it adds auto-stress,
@@ -41,16 +47,21 @@ homograph resolution, and question-intonation support (questions carry distinct
 intonation in Russian, which matters for pronunciation practice).
 
 The agent has no system prompt or fixed curriculum by design — it's a general
-helpful chat agent that happens to have Russian TTS available as a tool. It also
-has no persistence: each run starts a fresh conversation.
+helpful chat agent that happens to have a `create_pronunciation_clip` tool available.
+It also has no cross-run persistence: each run starts a fresh conversation.
 
 ## Project structure
 
 ```
 src/
-  tts.py     - Silero TTS wrapper (model loading + synthesis, plain and SSML)
-  agent.py   - TeacherAgent: OpenAI-compatible chat client + speak_russian tool
-  main.py    - CLI entry point (chat loop)
+  tts.py           - Silero TTS wrapper (model loading + synthesis, plain and SSML)
+  clips.py         - ClipStore: synthesizes and registers clips by id, for later playback
+  agent.py         - TeacherAgent: OpenAI-compatible chat client, structured (ChatReply)
+                     replies so words can be tied to specific audio clips
+  server.py        - FastAPI app: POST /chat, GET /audio/{clip_id}, serves static/
+  static/index.html - Chat UI: renders text/word segments, word segments are
+                     clickable buttons that play their clip
+  main.py          - Entry point: launches the server and opens the browser
 ```
 
 ## Available speakers

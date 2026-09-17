@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Russian Pronunciation Tutor</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --bubble-bg: #f0f2f5;
+    --accent: #2563eb;
+    --border: #d8dde3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181c;
+      --fg: #e8eaed;
+      --bubble-bg: #24272c;
+      --accent: #5b9dff;
+      --border: #3a3f46;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+  #app {
+    width: 100%;
+    max-width: 720px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+  }
+  h1 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 12px;
+  }
+  #log {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 12px;
+  }
+  .msg {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    line-height: 1.5;
+    word-wrap: break-word;
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: white;
+  }
+  .msg.teacher {
+    align-self: flex-start;
+    background: var(--bubble-bg);
+  }
+  .word-btn {
+    display: inline;
+    font: inherit;
+    color: var(--accent);
+    background: none;
+    border: none;
+    border-bottom: 2px dotted var(--accent);
+    padding: 0 1px;
+    cursor: pointer;
+  }
+  .word-btn:hover {
+    opacity: 0.75;
+  }
+  form {
+    display: flex;
+    gap: 8px;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--fg);
+    font-size: 1rem;
+  }
+  button[type="submit"] {
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>Russian Pronunciation Tutor</h1>
+  <div id="log"></div>
+  <form id="form">
+    <input id="input" type="text" placeholder="Ask anything..." autocomplete="off" autofocus>
+    <button type="submit">Send</button>
+  </form>
+</div>
+
+<script>
+const log = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+
+function addMessage(role, node) {
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.appendChild(node);
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+
+function renderSegments(segments) {
+  const frag = document.createDocumentFragment();
+  for (const seg of segments) {
+    if (seg.type === "word") {
+      const btn = document.createElement("button");
+      btn.className = "word-btn";
+      btn.type = "button";
+      btn.textContent = seg.display;
+      btn.dataset.clipId = seg.clip_id;
+      btn.addEventListener("click", () => {
+        new Audio("/audio/" + seg.clip_id).play().catch(() => {});
+      });
+      frag.appendChild(btn);
+    } else {
+      frag.appendChild(document.createTextNode(seg.content));
+    }
+  }
+  return frag;
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  addMessage("user", document.createTextNode(text));
+
+  const placeholder = addMessage("teacher", document.createTextNode("..."));
+
+  try {
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    const data = await res.json();
+    placeholder.textContent = "";
+    placeholder.appendChild(renderSegments(data.segments));
+  } catch (err) {
+    placeholder.textContent = "Error: " + err;
+  }
+});
+</script>
+</body>
+</html>

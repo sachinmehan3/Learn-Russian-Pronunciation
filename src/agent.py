@@ -1,45 +1,41 @@
 import os
-import uuid
-import winsound
+from typing import Literal, Union
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
+from clips import ClipStore
 from tts import RussianTTS
 
 load_dotenv()
 
 
-class SpeakRussianArgs(BaseModel):
+class CreateClipArgs(BaseModel):
     text: str
+
 
 TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "speak_russian",
+            "name": "create_pronunciation_clip",
             "description": (
-                "Synthesize and play spoken Russian audio out loud for the given "
-                "text, using a native Russian voice. Use this whenever it would "
-                "help the user hear correct Russian pronunciation. `text` must be "
-                "written in the Cyrillic alphabet (e.g. 'привет', not 'privet') "
-                "-- the voice model cannot pronounce romanized/transliterated "
-                "Russian. It can be plain Cyrillic text, or SSML wrapped in "
-                "<speak>...</speak> to control pacing/emphasis (e.g. "
-                "<prosody rate=\"x-slow\"> to slow down a hard word, "
-                "<break time=\"500ms\"/> for a pause)."
+                "Synthesize Russian audio for the given text and register it for "
+                "later playback -- this does NOT play it immediately. Returns a "
+                "clip_id. Reference that exact clip_id in a 'word' segment of your "
+                "structured reply so the user can click it to hear the audio, as "
+                "many times as they want. `text` must be Cyrillic (e.g. 'привет', "
+                "not 'privet') -- the voice model cannot pronounce romanized text. "
+                "It can also be SSML wrapped in <speak>...</speak> for "
+                "pacing/emphasis."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "text": {
                         "type": "string",
-                        "description": (
-                            "Russian text in Cyrillic script (or Cyrillic text "
-                            "wrapped in SSML) to pronounce. Never romanized/Latin "
-                            "transliteration."
-                        ),
+                        "description": "Cyrillic Russian text (or Cyrillic SSML).",
                     }
                 },
                 "required": ["text"],
@@ -49,6 +45,31 @@ TOOLS = [
 ]
 
 
+class TextSegment(BaseModel):
+    type: Literal["text"]
+    content: str = Field(description="A chunk of plain reply text.")
+
+
+class WordSegment(BaseModel):
+    type: Literal["word"]
+    display: str = Field(
+        description="Label shown on the clickable button, e.g. a transliteration or the Cyrillic word."
+    )
+    clip_id: str = Field(
+        description="The clip_id returned by a create_pronunciation_clip call for this exact word. Never invent one."
+    )
+
+
+class ChatReply(BaseModel):
+    segments: list[Union[TextSegment, WordSegment]] = Field(
+        description=(
+            "Your reply broken into segments, in reading order. Any Russian word "
+            "or phrase you've created a pronunciation clip for must be its own "
+            "'word' segment; everything else is 'text' segments."
+        )
+    )
+
+
 class TeacherAgent:
     def __init__(self):
         self.client = OpenAI(
@@ -56,56 +77,40 @@ class TeacherAgent:
             base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
         )
         self.model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-        self.tts = RussianTTS()
+        self.clips = ClipStore(RussianTTS())
         self.history = []
 
-    def speak_russian(self, text: str) -> str:
-        output_path = f"audio_output/{uuid.uuid4().hex}.wav"
-        if "<speak" in text:
-            path = self.tts.synthesize_ssml(text, output_path=output_path)
-        else:
-            path = self.tts.synthesize(text, output_path=output_path)
-        try:
-            winsound.PlaySound(path, winsound.SND_FILENAME)
-        finally:
-            os.remove(path)
-        return f"Played: {text}"
-
-    def chat(self, user_message: str) -> str:
+    def chat(self, user_message: str) -> ChatReply:
         self.history.append({"role": "user", "content": user_message})
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=self.history,
-            tools=TOOLS,
-        )
-        message = response.choices[0].message
-
-        while message.tool_calls:
-            self.history.append(message.model_dump(exclude_none=True))
-
-            for tool_call in message.tool_calls:
-                try:
-                    args = SpeakRussianArgs.model_validate_json(
-                        tool_call.function.arguments
-                    )
-                    result = self.speak_russian(args.text)
-                except ValidationError as e:
-                    result = f"Error: invalid arguments - {e}"
-                self.history.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": result,
-                    }
-                )
-
-            response = self.client.chat.completions.create(
+        while True:
+            completion = self.client.chat.completions.parse(
                 model=self.model,
                 messages=self.history,
                 tools=TOOLS,
+                response_format=ChatReply,
             )
-            message = response.choices[0].message
+            message = completion.choices[0].message
 
-        self.history.append({"role": "assistant", "content": message.content})
-        return message.content
+            if message.tool_calls:
+                self.history.append(message.model_dump(exclude_none=True))
+                for tool_call in message.tool_calls:
+                    try:
+                        args = CreateClipArgs.model_validate_json(
+                            tool_call.function.arguments
+                        )
+                        clip_id = self.clips.create(args.text)
+                        result = f"clip_id: {clip_id}"
+                    except ValidationError as e:
+                        result = f"Error: invalid arguments - {e}"
+                    self.history.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result,
+                        }
+                    )
+                continue
+
+            self.history.append({"role": "assistant", "content": message.content})
+            return message.parsed

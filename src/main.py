@@ -1,20 +1,15 @@
-from agent import TeacherAgent
+import threading
+import webbrowser
+
+import uvicorn
+
+URL = "http://127.0.0.1:8000"
 
 
 def main() -> None:
-    print("Loading Russian teacher agent...")
-    agent = TeacherAgent()
-    print("Ready. Chat away, or type 'quit' to exit.\n")
-
-    while True:
-        text = input("You> ").strip()
-        if text.lower() in {"quit", "exit"}:
-            break
-        if not text:
-            continue
-
-        reply = agent.chat(text)
-        print(f"Teacher> {reply}\n")
+    print(f"Starting Russian Pronunciation Tutor at {URL}")
+    threading.Timer(1.0, lambda: webbrowser.open(URL)).start()
+    uvicorn.run("server:app", host="127.0.0.1", port=8000)
 
 
 if __name__ == "__main__":
