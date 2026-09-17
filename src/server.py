@@ -40,15 +40,8 @@ def index():
 def chat(req: ChatRequest):
     def event_stream():
         for event in agent.chat_stream(req.message):
-            if event["type"] == "segments":
-                word_segments = [s for s in event["segments"] if s["type"] == "word"]
-                logger.info(
-                    "chat: %r -> %d segment(s), %d clip(s): %s",
-                    req.message,
-                    len(event["segments"]),
-                    len(word_segments),
-                    word_segments,
-                )
+            if event["type"] == "html":
+                logger.info("chat: %r -> %s", req.message, event["html"])
             yield f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

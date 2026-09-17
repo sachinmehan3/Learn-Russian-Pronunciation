@@ -220,23 +220,12 @@ async function playClip(clipId, btn) {
   }
 }
 
-function renderReply(reply) {
-  const frag = document.createDocumentFragment();
-  for (const seg of reply.segments) {
-    if (seg.type === "word") {
-      debug(`Rendering word "${seg.content}" -> clip_id "${seg.clip_id}"`);
-      const btn = document.createElement("button");
-      btn.className = "word-btn";
-      btn.type = "button";
-      btn.textContent = seg.content;
-      btn.dataset.clipId = seg.clip_id;
-      btn.addEventListener("click", () => playClip(seg.clip_id, btn));
-      frag.appendChild(btn);
-    } else {
-      frag.appendChild(document.createTextNode(seg.content));
-    }
-  }
-  return frag;
+function renderReply(bubble, html) {
+  bubble.innerHTML = html;
+  bubble.querySelectorAll(".word-btn").forEach((btn) => {
+    debug(`Rendering word "${btn.textContent}" -> clip_id "${btn.dataset.clipId}"`);
+    btn.addEventListener("click", () => playClip(btn.dataset.clipId, btn));
+  });
 }
 
 function makeSpinner(label) {
@@ -292,10 +281,9 @@ form.addEventListener("submit", async (e) => {
         } else if (event.type === "text_done") {
           spinner.setLabel("Creating pronunciation audio...");
           debug("Text streaming complete, synthesizing clips...");
-        } else if (event.type === "segments") {
-          debug("Response segments: " + JSON.stringify(event.segments));
-          bubble.textContent = "";
-          bubble.appendChild(renderReply({ segments: event.segments }));
+        } else if (event.type === "html") {
+          debug("Response html: " + event.html);
+          renderReply(bubble, event.html);
         }
       }
     }
