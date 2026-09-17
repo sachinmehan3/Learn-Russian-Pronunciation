@@ -1,9 +1,10 @@
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -37,16 +38,20 @@ def index():
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    reply = agent.chat(req.message)
-    word_segments = [s for s in reply["segments"] if s["type"] == "word"]
-    logger.info(
-        "chat: %r -> %d segment(s), %d clip(s): %s",
-        req.message,
-        len(reply["segments"]),
-        len(word_segments),
-        word_segments,
-    )
-    return reply
+    def event_stream():
+        for event in agent.chat_stream(req.message):
+            if event["type"] == "segments":
+                word_segments = [s for s in event["segments"] if s["type"] == "word"]
+                logger.info(
+                    "chat: %r -> %d segment(s), %d clip(s): %s",
+                    req.message,
+                    len(event["segments"]),
+                    len(word_segments),
+                    word_segments,
+                )
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.get("/audio/{clip_id}")

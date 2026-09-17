@@ -84,6 +84,25 @@
     color: #e04b4b;
     border-bottom-color: #e04b4b;
   }
+  .spinner-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 6px;
+    font-size: 0.85rem;
+    opacity: 0.7;
+  }
+  .spinner-icon {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
   form {
     display: flex;
     gap: 8px;
@@ -220,6 +239,18 @@ function renderReply(reply) {
   return frag;
 }
 
+function makeSpinner(label) {
+  const span = document.createElement("span");
+  span.className = "spinner-label";
+  const icon = document.createElement("span");
+  icon.className = "spinner-icon";
+  const text = document.createElement("span");
+  text.textContent = label;
+  span.appendChild(icon);
+  span.appendChild(text);
+  return { el: span, setLabel: (l) => { text.textContent = l; } };
+}
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = input.value.trim();
@@ -227,9 +258,12 @@ form.addEventListener("submit", async (e) => {
   input.value = "";
   addMessage("user", document.createTextNode(text));
 
-  const placeholder = addMessage("teacher", document.createTextNode("..."));
+  const bubble = addMessage("teacher", document.createTextNode(""));
+  const textNode = bubble.firstChild;
+  const spinner = makeSpinner("Thinking...");
+  bubble.appendChild(spinner.el);
 
-  debug(`POST /chat "${text}"`);
+  debug(`POST /chat (stream) "${text}"`);
   try {
     const res = await fetch("/chat", {
       method: "POST",
@@ -237,13 +271,37 @@ form.addEventListener("submit", async (e) => {
       body: JSON.stringify({ message: text }),
     });
     debug(`POST /chat -> ${res.status} ${res.statusText}`, res.ok ? "ok" : "err");
-    const data = await res.json();
-    debug("Response: " + JSON.stringify(data));
-    placeholder.textContent = "";
-    placeholder.appendChild(renderReply(data));
+    if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop();
+      for (const part of parts) {
+        if (!part.startsWith("data: ")) continue;
+        const event = JSON.parse(part.slice(6));
+
+        if (event.type === "delta") {
+          textNode.textContent += event.content;
+        } else if (event.type === "text_done") {
+          spinner.setLabel("Creating pronunciation audio...");
+          debug("Text streaming complete, synthesizing clips...");
+        } else if (event.type === "segments") {
+          debug("Response segments: " + JSON.stringify(event.segments));
+          bubble.textContent = "";
+          bubble.appendChild(renderReply({ segments: event.segments }));
+        }
+      }
+    }
   } catch (err) {
     debug("Error handling /chat: " + err, "err");
-    placeholder.textContent = "Error: " + err;
+    bubble.textContent = "Error: " + err;
   }
 });
 </script>

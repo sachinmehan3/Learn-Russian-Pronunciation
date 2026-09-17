@@ -36,20 +36,33 @@ class TeacherAgent:
         self.clips = ClipStore(RussianTTS())
         self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    def chat(self, user_message: str) -> dict:
+    def chat_stream(self, user_message: str):
+        """Yields dict events as the reply is generated:
+        {"type": "delta", "content": str}   - a chunk of streamed reply text
+        {"type": "text_done"}               - reply text finished, synthesis starting
+        {"type": "segments", "segments": [...]} - final text/word segments, synthesized
+        """
         logger.info("user: %s", user_message)
         self.history.append({"role": "user", "content": user_message})
 
-        kwargs = dict(model=self.model, messages=self.history)
+        kwargs = dict(model=self.model, messages=self.history, stream=True)
         if self.reasoning_effort:
             kwargs["reasoning_effort"] = self.reasoning_effort
-        completion = self.client.chat.completions.create(**kwargs)
-        text = completion.choices[0].message.content
+        stream = self.client.chat.completions.create(**kwargs)
 
+        chunks = []
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                chunks.append(delta)
+                yield {"type": "delta", "content": delta}
+
+        text = "".join(chunks)
         logger.info("assistant: %s", text)
         self.history.append({"role": "assistant", "content": text})
+        yield {"type": "text_done"}
 
-        return {"segments": self._segment(text)}
+        yield {"type": "segments", "segments": self._segment(text)}
 
     def _segment(self, text: str) -> list[dict]:
         segments = []
