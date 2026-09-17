@@ -83,7 +83,17 @@ class TeacherAgent:
         )
         self.model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
         self.clips = ClipStore(RussianTTS())
-        self.history = []
+        self.history = [
+            {
+                "role": "system",
+                "content": (
+                    "Tool-use rule: before including any 'word' segment with a "
+                    "clip_id in your reply, you must first call "
+                    "create_pronunciation_clip for that exact text and use the "
+                    "exact clip_id it returns. Never invent a clip_id."
+                ),
+            }
+        ]
 
     def chat(self, user_message: str) -> ChatReply:
         logger.info("user: %s", user_message)
