@@ -17,17 +17,24 @@ TOOLS = [
             "description": (
                 "Synthesize and play spoken Russian audio out loud for the given "
                 "text, using a native Russian voice. Use this whenever it would "
-                "help the user hear correct Russian pronunciation. `text` can be "
-                "plain Russian, or SSML wrapped in <speak>...</speak> to control "
-                "pacing/emphasis (e.g. <prosody rate=\"x-slow\"> to slow down a "
-                "hard word, <break time=\"500ms\"/> for a pause)."
+                "help the user hear correct Russian pronunciation. `text` must be "
+                "written in the Cyrillic alphabet (e.g. 'привет', not 'privet') "
+                "-- the voice model cannot pronounce romanized/transliterated "
+                "Russian. It can be plain Cyrillic text, or SSML wrapped in "
+                "<speak>...</speak> to control pacing/emphasis (e.g. "
+                "<prosody rate=\"x-slow\"> to slow down a hard word, "
+                "<break time=\"500ms\"/> for a pause)."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "text": {
                         "type": "string",
-                        "description": "Russian text to pronounce, plain or SSML.",
+                        "description": (
+                            "Russian text in Cyrillic script (or Cyrillic text "
+                            "wrapped in SSML) to pronounce. Never romanized/Latin "
+                            "transliteration."
+                        ),
                     }
                 },
                 "required": ["text"],
