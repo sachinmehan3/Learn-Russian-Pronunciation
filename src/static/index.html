@@ -80,10 +80,39 @@
   .word-btn:hover {
     opacity: 0.75;
   }
+  .word-btn.failed {
+    color: #e04b4b;
+    border-bottom-color: #e04b4b;
+  }
   form {
     display: flex;
     gap: 8px;
   }
+  #debug {
+    margin-top: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+  #debug summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--fg);
+    opacity: 0.7;
+  }
+  #debug-log {
+    margin: 8px 0 0;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 0.78rem;
+    background: var(--bubble-bg);
+    border-radius: 8px;
+    padding: 8px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  #debug-log .err { color: #e04b4b; }
+  #debug-log .ok { color: #3aa76d; }
   input[type="text"] {
     flex: 1;
     padding: 10px 12px;
@@ -112,12 +141,30 @@
     <input id="input" type="text" placeholder="Ask anything..." autocomplete="off" autofocus>
     <button type="submit">Send</button>
   </form>
+  <details id="debug">
+    <summary>Debug log</summary>
+    <div id="debug-log"></div>
+  </details>
 </div>
 
 <script>
 const log = document.getElementById("log");
 const form = document.getElementById("form");
 const input = document.getElementById("input");
+const debugLog = document.getElementById("debug-log");
+
+function debug(msg, level = "info") {
+  const time = new Date().toLocaleTimeString();
+  const line = document.createElement("div");
+  if (level !== "info") line.className = level;
+  line.textContent = `[${time}] ${msg}`;
+  debugLog.appendChild(line);
+  debugLog.scrollTop = debugLog.scrollHeight;
+  (level === "err" ? console.error : console.log)(msg);
+}
+
+window.addEventListener("error", (e) => debug("Uncaught error: " + e.message, "err"));
+window.addEventListener("unhandledrejection", (e) => debug("Unhandled rejection: " + e.reason, "err"));
 
 function addMessage(role, node) {
   const div = document.createElement("div");
@@ -128,18 +175,43 @@ function addMessage(role, node) {
   return div;
 }
 
+async function playClip(clipId, btn) {
+  debug(`Clicked word -> clip_id "${clipId}"`);
+  try {
+    const res = await fetch("/audio/" + clipId);
+    debug(`GET /audio/${clipId} -> ${res.status} ${res.statusText}`, res.ok ? "ok" : "err");
+    if (!res.ok) {
+      btn.classList.add("failed");
+      btn.title = `Playback failed: HTTP ${res.status} (${res.statusText})`;
+      return;
+    }
+    const blob = await res.blob();
+    debug(`Received ${blob.size} bytes, type=${blob.type}`);
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.addEventListener("ended", () => URL.revokeObjectURL(url));
+    await audio.play();
+    debug(`Playing clip_id "${clipId}"`, "ok");
+    btn.classList.remove("failed");
+    btn.title = "";
+  } catch (err) {
+    debug(`Error playing clip_id "${clipId}": ${err}`, "err");
+    btn.classList.add("failed");
+    btn.title = "Playback failed: " + err;
+  }
+}
+
 function renderSegments(segments) {
   const frag = document.createDocumentFragment();
   for (const seg of segments) {
     if (seg.type === "word") {
+      debug(`Rendering word segment "${seg.display}" -> clip_id "${seg.clip_id}"`);
       const btn = document.createElement("button");
       btn.className = "word-btn";
       btn.type = "button";
       btn.textContent = seg.display;
       btn.dataset.clipId = seg.clip_id;
-      btn.addEventListener("click", () => {
-        new Audio("/audio/" + seg.clip_id).play().catch(() => {});
-      });
+      btn.addEventListener("click", () => playClip(seg.clip_id, btn));
       frag.appendChild(btn);
     } else {
       frag.appendChild(document.createTextNode(seg.content));
@@ -157,16 +229,20 @@ form.addEventListener("submit", async (e) => {
 
   const placeholder = addMessage("teacher", document.createTextNode("..."));
 
+  debug(`POST /chat "${text}"`);
   try {
     const res = await fetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),
     });
+    debug(`POST /chat -> ${res.status} ${res.statusText}`, res.ok ? "ok" : "err");
     const data = await res.json();
+    debug("Response segments: " + JSON.stringify(data.segments));
     placeholder.textContent = "";
     placeholder.appendChild(renderSegments(data.segments));
   } catch (err) {
+    debug("Error handling /chat: " + err, "err");
     placeholder.textContent = "Error: " + err;
   }
 });
