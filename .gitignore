@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+.env
+audio_output/
+*.wav
+.silero_cache/

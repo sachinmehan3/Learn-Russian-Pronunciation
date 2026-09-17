@@ -1,0 +1,36 @@
+import pathlib
+
+import soundfile as sf
+import torch
+
+
+class RussianTTS:
+    """Wrapper around Silero's Russian TTS model."""
+
+    def __init__(self, device: str = "cpu", model_id: str = "v4_ru"):
+        self.device = torch.device(device)
+        self.model, _ = torch.hub.load(
+            repo_or_dir="snakers4/silero-models",
+            model="silero_tts",
+            language="ru",
+            speaker=model_id,
+        )
+        self.model.to(self.device)
+
+    def synthesize(
+        self,
+        text: str,
+        speaker: str = "xenia",
+        sample_rate: int = 48000,
+        output_path: str = "audio_output/output.wav",
+    ) -> str:
+        audio = self.model.apply_tts(
+            text=text,
+            speaker=speaker,
+            sample_rate=sample_rate,
+        )
+
+        out_path = pathlib.Path(output_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        sf.write(out_path, audio.numpy(), sample_rate)
+        return str(out_path)
