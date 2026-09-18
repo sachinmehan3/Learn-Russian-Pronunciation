@@ -151,7 +151,7 @@ def send_message(chat_id: str, req: MessageRequest):
     if not agent.settings.current.configured:
         raise HTTPException(
             status_code=409,
-            detail="Connect a model first in Settings > Connections.",
+            detail="Connect a model first in Settings > Model.",
         )
 
     def event_stream():

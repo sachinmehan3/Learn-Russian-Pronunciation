@@ -173,9 +173,9 @@ class TeacherAgent:
 
 def describe_api_error(e: openai.APIError) -> str:
     if isinstance(e, openai.AuthenticationError):
-        return "The API key was rejected. Check it in Settings > Connections."
+        return "The API key was rejected. Check it in Settings > Model."
     if isinstance(e, openai.NotFoundError):
-        return "The model or URL wasn't found. Check Settings > Connections."
+        return "The model or URL wasn't found. Check Settings > Model."
     if isinstance(e, openai.APIConnectionError):
-        return "Couldn't reach the API. Check the base URL in Settings > Connections."
+        return "Couldn't reach the API. Check the base URL in Settings > Model."
     return getattr(e, "message", None) or str(e)

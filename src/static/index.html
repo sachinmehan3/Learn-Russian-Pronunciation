@@ -739,7 +739,7 @@
     </nav>
     <div class="settings-wrap">
       <div id="settings-menu" class="dropup" role="menu" hidden>
-        <button id="open-connections" class="menu-item" role="menuitem">Connections</button>
+        <button id="open-connections" class="menu-item" role="menuitem">Model</button>
         <button id="open-prefs" class="menu-item" role="menuitem">Preferences</button>
       </div>
       <button id="settings-btn" class="side-item" title="Settings" aria-haspopup="menu" aria-expanded="false" aria-controls="settings-menu">
@@ -817,73 +817,99 @@
 </div>
 
 <div id="connections" class="modal" hidden>
-  <div class="modal-card single" role="dialog" aria-modal="true" aria-labelledby="connections-title">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="model-title">
+    <aside class="modal-sidebar" aria-label="Model Settings Navigation">
+      <div class="modal-sidebar-title">Model</div>
+      <nav class="modal-nav">
+        <button id="tab-btn-connection" class="modal-nav-item active" type="button" data-tab="connection">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span>Connection</span>
+        </button>
+        <button id="tab-btn-parameters" class="modal-nav-item" type="button" data-tab="parameters">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          <span>Parameters</span>
+        </button>
+        <button id="tab-btn-prompt" class="modal-nav-item" type="button" data-tab="prompt">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Prompt</span>
+        </button>
+      </nav>
+    </aside>
+
     <section class="modal-body">
       <div class="modal-head">
-        <h2 id="connections-title">Connections</h2>
-        <button id="close-connections" class="icon-btn" aria-label="Close connections">
+        <h2 id="model-title">Connection</h2>
+        <button id="close-connections" class="icon-btn" aria-label="Close model settings">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
 
-      <form id="connections-form" class="settings-panel" novalidate>
-        <p class="hint">Any OpenAI-compatible API works: OpenAI, OpenRouter, Groq, or a local server such as LM Studio or Ollama.</p>
-        <div class="field">
-          <label for="set-base-url">Base URL</label>
-          <input id="set-base-url" type="url" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false" required>
-        </div>
-        <div class="field">
-          <label for="set-api-key">API key</label>
-          <input id="set-api-key" type="password" autocomplete="off" spellcheck="false">
-          <span id="api-key-hint" class="hint"></span>
-        </div>
-        <div class="field">
-          <label for="set-model">Model</label>
-          <div class="input-row">
-            <input id="set-model" list="model-options" placeholder="Pick or type a model" autocomplete="off" spellcheck="false" required>
-            <button id="refresh-models" class="btn" type="button">Refresh</button>
+      <form id="connections-form" novalidate style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+        <div id="model-panel-connection" class="settings-panel">
+          <p class="hint">Any OpenAI-compatible API works: OpenAI, OpenRouter, Groq, Bedrock, or a local server such as LM Studio or Ollama.</p>
+          <div class="field">
+            <label for="set-base-url">Base URL</label>
+            <input id="set-base-url" type="url" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false" required>
           </div>
-          <datalist id="model-options"></datalist>
-          <span id="models-status" class="hint" role="status"></span>
+          <div class="field">
+            <label for="set-api-key">API key</label>
+            <input id="set-api-key" type="password" autocomplete="off" spellcheck="false">
+            <span id="api-key-hint" class="hint"></span>
+          </div>
+          <div class="field">
+            <label for="set-model">Model</label>
+            <div class="input-row">
+              <input id="set-model" list="model-options" placeholder="Pick or type a model" autocomplete="off" spellcheck="false" required>
+              <button id="refresh-models" class="btn" type="button">Refresh</button>
+            </div>
+            <datalist id="model-options"></datalist>
+            <span id="models-status" class="hint" role="status"></span>
+          </div>
         </div>
 
-        <hr class="divider">
-        <p class="hint">Leave a field empty to use the model's own default. Not every model accepts every setting &mdash; reasoning models often reject temperature and top-p.</p>
-        <div class="field-grid">
-          <div class="field">
-            <label for="set-temperature">Temperature</label>
-            <input id="set-temperature" type="number" min="0" max="2" step="0.1" placeholder="Default" inputmode="decimal">
-          </div>
-          <div class="field">
-            <label for="set-top-p">Top-p</label>
-            <input id="set-top-p" type="number" min="0" max="1" step="0.05" placeholder="Default" inputmode="decimal">
-          </div>
-          <div class="field">
-            <label for="set-max-tokens">Max output tokens</label>
-            <input id="set-max-tokens" type="number" min="1" step="1" placeholder="Default" inputmode="numeric">
-          </div>
-          <div class="field">
-            <label for="set-reasoning">Reasoning effort</label>
-            <select id="set-reasoning">
-              <option value="">Default</option>
-              <option value="none">None</option>
-              <option value="minimal">Minimal</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="xhigh">Extra high</option>
-              <option value="max">Max</option>
-            </select>
+        <div id="model-panel-parameters" class="settings-panel" hidden>
+          <p class="hint">Leave a field empty to use the model's own default. Not every model accepts every setting &mdash; reasoning models often reject temperature and top-p.</p>
+          <div class="field-grid">
+            <div class="field">
+              <label for="set-temperature">Temperature</label>
+              <input id="set-temperature" type="number" min="0" max="2" step="0.1" placeholder="Default" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label for="set-top-p">Top-p</label>
+              <input id="set-top-p" type="number" min="0" max="1" step="0.05" placeholder="Default" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label for="set-max-tokens">Max output tokens</label>
+              <input id="set-max-tokens" type="number" min="1" step="1" placeholder="Default" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label for="set-reasoning">Reasoning effort</label>
+              <select id="set-reasoning">
+                <option value="">Default</option>
+                <option value="none">None</option>
+                <option value="minimal">Minimal</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="xhigh">Extra high</option>
+                <option value="max">Max</option>
+              </select>
+            </div>
           </div>
         </div>
-        <div class="field">
-          <div class="label-row">
-            <label for="set-system-prompt">System prompt</label>
-            <button id="reset-prompt" class="link-btn" type="button">Reset to default</button>
+
+        <div id="model-panel-prompt" class="settings-panel" hidden>
+          <p class="hint">The system prompt given to the AI tutor. Click &ldquo;Reset to default&rdquo; to restore the original Russian teaching instructions.</p>
+          <div class="field">
+            <div class="label-row">
+              <label for="set-system-prompt">System prompt</label>
+              <button id="reset-prompt" class="link-btn" type="button">Reset to default</button>
+            </div>
+            <textarea id="set-system-prompt" rows="9"></textarea>
           </div>
-          <textarea id="set-system-prompt" rows="8"></textarea>
         </div>
-        <div class="form-actions">
+
+        <div class="form-actions" style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border);">
           <span class="save-status" role="status"></span>
           <button class="btn primary" type="submit">Save</button>
         </div>
@@ -1100,7 +1126,7 @@ function showEmptyState() {
     const btn = document.createElement("button");
     btn.className = "btn primary";
     btn.type = "button";
-    btn.textContent = "Set up connection";
+    btn.textContent = "Set up model";
     btn.addEventListener("click", openConnections);
     empty.append(text, btn);
   }
@@ -1820,12 +1846,28 @@ function fillConnectionsForm() {
   connForm.querySelectorAll(".invalid").forEach((el) => el.classList.remove("invalid"));
 }
 
-function openConnections() {
+function setModelTab(tab) {
+  connections.querySelectorAll(".modal-nav-item").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+  });
+  $("model-panel-connection").hidden = tab !== "connection";
+  $("model-panel-parameters").hidden = tab !== "parameters";
+  $("model-panel-prompt").hidden = tab !== "prompt";
+  const titles = {
+    connection: "Connection",
+    parameters: "Parameters",
+    prompt: "Prompt",
+  };
+  $("model-title").textContent = titles[tab] || "Connection";
+}
+
+function openConnections(tab = "connection") {
   setSettingsMenu(false);
   returnFocus = document.activeElement;
   fillConnectionsForm();
+  setModelTab(tab);
   connections.hidden = false;
-  baseUrlInput.focus();
+  if (tab === "connection") baseUrlInput.focus();
   loadModels();
 }
 
@@ -1931,11 +1973,13 @@ connForm.addEventListener("submit", async (e) => {
   const invalid = fields.filter((el) => !el.checkValidity());
   fields.forEach((el) => el.classList.toggle("invalid", invalid.includes(el)));
   if (invalid.length) {
+    setModelTab("parameters");
     setStatus(status, "Fix the highlighted fields.", "err");
     invalid[0].focus();
     return;
   }
   if (!base_url || !model || (!api_key && !state.settings.api_key_hint)) {
+    setModelTab("connection");
     setStatus(status, "Base URL, API key and model are all required.", "err");
     return;
   }
@@ -1989,8 +2033,12 @@ defaultVoiceSelect.addEventListener("change", () => {
   debug(`Default voice set to ${state.defaultVoice} (applies to new chats)`);
 });
 
-document.querySelectorAll(".modal-nav-item").forEach((btn) => {
+$("prefs").querySelectorAll(".modal-nav-item").forEach((btn) => {
   btn.addEventListener("click", () => setPrefsTab(btn.dataset.tab));
+});
+
+connections.querySelectorAll(".modal-nav-item").forEach((btn) => {
+  btn.addEventListener("click", () => setModelTab(btn.dataset.tab));
 });
 
 document.querySelectorAll(".theme-card").forEach((card) => {
